@@ -90,10 +90,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const switchRoleForDemo = (newRole: UserRole) => {
     setRole(newRole);
+    localStorage.setItem('trueline_demo_role', newRole);
     if (profile) {
       setProfile({ ...profile, role: newRole });
     }
   };
+
 
   return (
     <AuthContext.Provider
@@ -102,6 +104,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         session,
         profile,
         role,
+        isPlanner: role === 'planner',
+        isSupervisor: role === 'supervisor',
         loading,
         signIn,
         signOut,
@@ -110,5 +114,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     >
       {children}
     </AuthContext.Provider>
+
   );
 };

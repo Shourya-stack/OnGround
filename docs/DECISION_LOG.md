@@ -44,3 +44,15 @@ NEW DECISION: TrueLine will be deployment-ready for public hackathon demonstrati
 
 **D13 — Dual local + cloud development**
 NEW DECISION: The same codebase must support local development and public cloud deployment. Environment variables control all URLs and secrets — no hardcoded environment-specific values. Local development is faster and provides a fallback if deployment fails before the demo.
+
+**D14 — OpenRouter Free-Tier Default Model: LLaMA 3.3 70B Instruct Free**
+DECISION: TrueLine defaults to `meta-llama/llama-3.3-70b-instruct:free` on OpenRouter for free-tier JSON extraction, with seamless runtime fallback to `google/gemini-2.0-flash-exp:free` or any model specified via the `LLM_MODEL` environment variable. OpenRouter provides reliable OpenAI-compatible chat completion endpoints with free access tiers.
+
+**D15 — CSS & Styling Approach: Tokenized Native CSS Design System**
+DECISION: TrueLine utilizes a custom CSS custom properties (tokens) design system in `index.css`. Provides tailored dark-mode EPC megaproject palette (`#0B0F17`, `#111827`, `#3B82F6`, `#10B981`, `#F59E0B`, `#EF4444`), glassmorphism, responsive data tables, confidence badges, and smooth micro-interactions without third-party build friction or CSS bloat.
+
+**D16 — Backend Cloud Hosting Provider: Render (with Universal Docker Fallback)**
+DECISION: TrueLine standardizes on Render for free-tier FastAPI cloud hosting (`render.yaml`), supplemented by a root `Dockerfile` and `Procfile` for universal 1-click compatibility on Railway, Fly.io, or Hugging Face Spaces. Dual local + cloud support ensures uninterrupted demonstration regardless of external network latency.
+
+
+

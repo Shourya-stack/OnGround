@@ -1,76 +1,97 @@
-import React from 'react';
-import { GitCompare, Filter, CheckCircle, Clock } from 'lucide-react';
-import { useAuth } from '../hooks/useAuth';
+import React, { useState } from 'react';
+import { useMatches } from '../hooks/useMatches';
+import { ReconciliationTable } from '../components/reconciliation/ReconciliationTable';
+import { apiClient } from '../lib/apiClient';
+import { CandidateMatch } from '../lib/types';
+import { Toast, ToastMessage } from '../components/common/Toast';
 
 export const ReconciliationPage: React.FC = () => {
-  const { role } = useAuth();
+  const { data: matches, loading, error, refetch } = useMatches();
+  const [toast, setToast] = useState<ToastMessage | null>(null);
+
+  const handleConfirm = async (matchId: string) => {
+    try {
+      await apiClient.confirmMatch(matchId);
+      setToast({
+        id: Date.now().toString(),
+        type: 'success',
+        title: 'Match Confirmed',
+        message: 'Physical progress linked to Primavera/P6 baseline schedule.',
+      });
+      refetch();
+    } catch (err: any) {
+      setToast({
+        id: Date.now().toString(),
+        type: 'error',
+        title: 'Confirmation Failed',
+        message: err.message || 'Could not confirm match.',
+      });
+    }
+  };
+
+  const handleReject = async (matchId: string, reason?: string) => {
+    try {
+      await apiClient.rejectMatch(matchId, reason);
+      setToast({
+        id: Date.now().toString(),
+        type: 'info',
+        title: 'Match Rejected',
+        message: 'Activity moved to Unmatched pool.',
+      });
+      refetch();
+    } catch (err: any) {
+      setToast({
+        id: Date.now().toString(),
+        type: 'error',
+        title: 'Rejection Failed',
+        message: err.message || 'Could not reject match.',
+      });
+    }
+  };
+
+  const handleConfirmAlternative = async (matchId: string, candidate: CandidateMatch) => {
+    try {
+      // In production API, could send candidate reassign payload
+      await apiClient.confirmMatch(matchId);
+      setToast({
+        id: Date.now().toString(),
+        type: 'success',
+        title: 'Alternative Target Linked',
+        message: `Successfully reassigned to activity #${candidate.activity_code}.`,
+      });
+      refetch();
+    } catch (err: any) {
+      setToast({
+        id: Date.now().toString(),
+        type: 'error',
+        title: 'Reassignment Failed',
+        message: err.message,
+      });
+    }
+  };
 
   return (
-    <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-        <div>
-          <h1 style={{ fontSize: 24, fontWeight: 700, color: '#ffffff', marginBottom: 4 }}>
-            Schedule Reconciliation Table
-          </h1>
-          <p style={{ color: 'var(--text-secondary)', fontSize: 13 }}>
-            Extracted daily site activities linked against baseline schedule milestones.
-          </p>
-        </div>
-
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button className="icon-action-btn" title="Filter by discipline">
-            <Filter size={16} />
-          </button>
-        </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+      <div>
+        <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--color-text)' }}>
+          Progress Reconciliation Table
+        </h1>
+        <p style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', marginTop: '0.35rem' }}>
+          Review semantic links between contractor daily reports and master baseline schedule activities. Planners can confirm, reject, or disambiguate alternative matches.
+        </p>
       </div>
 
-      <div className="data-table-container">
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>Status</th>
-              <th>Confidence</th>
-              <th>Extracted Daily Activity</th>
-              <th>Discipline</th>
-              <th>Matched Plan Activity</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>
-                <span className="confidence-badge high">
-                  <CheckCircle size={12} />
-                  AUTO-LINKED
-                </span>
-              </td>
-              <td>
-                <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600, color: '#10b981' }}>94%</span>
-              </td>
-              <td>
-                <div style={{ fontWeight: 600, color: '#ffffff' }}>Erect Line 247-XX Piping Spool at Bay 3</div>
-                <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Daily Log: piping_report_sept10.txt</div>
-              </td>
-              <td>
-                <span style={{ fontSize: 11, color: 'var(--disc-piping)', backgroundColor: 'rgba(168, 85, 247, 0.1)', padding: '2px 8px', borderRadius: 4 }}>
-                  PIPING
-                </span>
-              </td>
-              <td>
-                <div style={{ fontWeight: 500, color: 'var(--text-primary)' }}>L5-247-ERC: Spool Erection Unit 4</div>
-                <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Planned: 2026-09-08 to 2026-09-14</div>
-              </td>
-              <td>
-                {role === 'planner' ? (
-                  <span style={{ fontSize: 12, color: 'var(--accent-blue)', cursor: 'pointer', fontWeight: 500 }}>Review Match</span>
-                ) : (
-                  <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Read Only</span>
-                )}
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+      <ReconciliationTable
+        matches={matches}
+        loading={loading}
+        error={error}
+        onConfirm={handleConfirm}
+        onReject={handleReject}
+        onConfirmAlternative={handleConfirmAlternative}
+        onRefresh={refetch}
+      />
+
+      <Toast toast={toast} onClose={() => setToast(null)} />
     </div>
   );
 };

@@ -1,4 +1,6 @@
-"""LLM package initialization."""
-from backend.llm.provider import LLMProvider
+"""LLM module exports."""
 
-__all__ = ["LLMProvider"]
+from backend.llm.provider import LLMProvider
+from backend.llm.openrouter import OpenRouterProvider
+
+__all__ = ["LLMProvider", "OpenRouterProvider"]

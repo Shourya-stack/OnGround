@@ -1,7 +1,7 @@
 import React from 'react';
 import { useAuth } from '../../hooks/useAuth';
-import { Shield, ShieldAlert, User, LogOut, Activity, RefreshCw } from 'lucide-react';
-import { UserRole } from '../../lib/types';
+import { Shield, ShieldAlert, User, LogOut } from 'lucide-react';
+
 
 export const TopBar: React.FC = () => {
   const { role, profile, switchRoleForDemo, signOut } = useAuth();

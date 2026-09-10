@@ -1,0 +1,22 @@
+activity_code,activity_description,discipline,planned_start,planned_end
+CIV-101,Bulk earthworks and site grading for main processing train,civil,2026-09-01,2026-09-15
+CIV-102,Foundation excavation and mud mat pouring for pump house A,civil,2026-09-05,2026-09-20
+CIV-103,Rebar tying and shuttering for compressor foundation block,civil,2026-09-10,2026-09-25
+CIV-104,Structural steel pipe rack erection from grid A1 to A8,civil,2026-09-15,2026-10-05
+PIP-201,Piping spool fabrication and fit-up for 12-inch cooling water line,piping,2026-09-08,2026-09-22
+PIP-202,GTAW/SMAW butt welding of 8-inch hydrocarbon headers in Unit 200,piping,2026-09-10,2026-09-28
+PIP-203,Non-destructive testing (radiography & ultrasonic) of critical piping welds,piping,2026-09-18,2026-10-02
+PIP-204,Hydrostatic pressure testing and golden flange bolt torqueing for loop 4,piping,2026-09-22,2026-10-10
+PIP-205,Underground firewater ring main laying and thrust block casting,piping,2026-09-05,2026-09-30
+ELE-301,Perforated cable tray installation along piperack corridor Level 2,electrical,2026-09-12,2026-09-26
+ELE-302,High voltage 11kV main feeder cable pulling in Substation 3,electrical,2026-09-15,2026-10-01
+ELE-303,Transformer busduct installation and secondary terminations at Substation 3,electrical,2026-09-18,2026-10-08
+ELE-304,Plant-wide grounding grid copper conductor bonding and earth pit testing,electrical,2026-09-06,2026-09-24
+INS-401,Instrument air header tubing and manifold mounting in Unit 200,instrumentation,2026-09-14,2026-09-30
+INS-402,Pressure and differential temperature transmitter calibration and field mounting,instrumentation,2026-09-20,2026-10-12
+INS-403,DCS/SCADA multi-pair signal cable loop checking and marshalling cabinet wiring,instrumentation,2026-09-25,2026-10-18
+EQP-501,Heavy lift rigging and foundation placement of crude distillation column C-101,static_rotating_equipment,2026-09-16,2026-09-24
+EQP-502,Centrifugal boiler feed pump alignment and mechanical seal setting,static_rotating_equipment,2026-09-22,2026-10-06
+EQP-503,Overhead fin-fan heat exchanger bundle insertion and nozzle torquing,static_rotating_equipment,2026-09-25,2026-10-14
+HSE-601,Pre-commissioning scaffold safety certification and fall arrest inspection,hse,2026-09-01,2026-10-31
+HSE-602,Confined space atmospheric gas testing and ventilation setup for Vessel V-204,hse,2026-09-10,2026-10-15

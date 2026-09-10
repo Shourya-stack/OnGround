@@ -1,76 +1,87 @@
 import React from 'react';
+import { useMatches } from '../hooks/useMatches';
+import { useExtractions } from '../hooks/useExtractions';
+import { ProgressSummary } from '../components/dashboard/ProgressSummary';
+import { DisciplineBreakdown } from '../components/dashboard/DisciplineBreakdown';
+import { RecentUploads } from '../components/dashboard/RecentUploads';
+import { LoadingSkeleton } from '../components/common/LoadingSkeleton';
+import { ErrorState } from '../components/common/ErrorState';
+import { Link } from 'react-router-dom';
+import { UploadCloud, ArrowRight } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
-import { CheckCircle2, Clock, AlertTriangle, FileText } from 'lucide-react';
 
 export const DashboardPage: React.FC = () => {
-  const { role } = useAuth();
+  const { user } = useAuth();
+
+  const { data: matches, loading: matchesLoading, error: matchesError, refetch: refetchMatches } = useMatches();
+  const { data: extractions, loading: extLoading, error: extError, refetch: refetchExt } = useExtractions();
+
+  const loading = matchesLoading || extLoading;
+  const error = matchesError || extError;
+
+  const handleRefresh = () => {
+    refetchMatches();
+    refetchExt();
+  };
 
   return (
-    <div className="dashboard-page">
-      <div style={{ marginBottom: 24 }}>
-        <h1 style={{ fontSize: 24, fontWeight: 700, color: '#ffffff', marginBottom: 4 }}>
-          Executive Project Dashboard
-        </h1>
-        <p style={{ color: 'var(--text-secondary)', fontSize: 13 }}>
-          Automated progress linkage status & AI confidence distribution for Line 247.
-        </p>
-      </div>
-
-      {/* KPI Cards Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 16, marginBottom: 28 }}>
-        <div className="card" style={{ display: 'flex', alignItems: 'center', gap: 16, padding: 20 }}>
-          <div style={{ width: 44, height: 44, borderRadius: 8, backgroundColor: 'rgba(16, 185, 129, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#10b981' }}>
-            <CheckCircle2 size={24} />
-          </div>
-          <div>
-            <div style={{ fontSize: 22, fontWeight: 700, color: '#ffffff' }}>42</div>
-            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Auto-Linked (High Conf)</div>
-          </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+      {/* Top Banner */}
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.12) 0%, rgba(16, 185, 129, 0.08) 100%)',
+          padding: '1.75rem 2rem',
+          borderRadius: 'var(--radius-lg)',
+          border: '1px solid rgba(59, 130, 246, 0.2)',
+        }}
+      >
+        <div>
+          <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--color-text)' }}>
+            TrueLine Project Intelligence Dashboard
+          </h1>
+          <p style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', marginTop: '0.35rem' }}>
+            Automated EPC Progress Capture & Primavera P6 Schedule Linking • Role:{' '}
+            <strong style={{ color: 'var(--color-primary)', textTransform: 'capitalize' }}>{user?.role}</strong>
+          </p>
         </div>
 
-        <div className="card" style={{ display: 'flex', alignItems: 'center', gap: 16, padding: 20 }}>
-          <div style={{ width: 44, height: 44, borderRadius: 8, backgroundColor: 'rgba(245, 158, 11, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#f59e0b' }}>
-            <Clock size={24} />
-          </div>
-          <div>
-            <div style={{ fontSize: 22, fontWeight: 700, color: '#ffffff' }}>8</div>
-            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Pending Planner Review</div>
-          </div>
-        </div>
-
-        <div className="card" style={{ display: 'flex', alignItems: 'center', gap: 16, padding: 20 }}>
-          <div style={{ width: 44, height: 44, borderRadius: 8, backgroundColor: 'rgba(239, 68, 68, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ef4444' }}>
-            <AlertTriangle size={24} />
-          </div>
-          <div>
-            <div style={{ fontSize: 22, fontWeight: 700, color: '#ffffff' }}>3</div>
-            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Unmatched Activities</div>
-          </div>
-        </div>
-
-        <div className="card" style={{ display: 'flex', alignItems: 'center', gap: 16, padding: 20 }}>
-          <div style={{ width: 44, height: 44, borderRadius: 8, backgroundColor: 'rgba(56, 189, 248, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#38bdf8' }}>
-            <FileText size={24} />
-          </div>
-          <div>
-            <div style={{ fontSize: 22, fontWeight: 700, color: '#ffffff' }}>12</div>
-            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Reports Processed</div>
-          </div>
+        <div style={{ display: 'flex', gap: '0.75rem' }}>
+          <Link
+            to="/upload"
+            className="btn btn-primary"
+            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', textDecoration: 'none' }}
+          >
+            <UploadCloud size={16} /> Upload Daily Report
+          </Link>
+          <Link
+            to="/reconciliation"
+            className="btn btn-secondary"
+            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', textDecoration: 'none' }}
+          >
+            Reconciliation Table <ArrowRight size={15} />
+          </Link>
         </div>
       </div>
 
-      {/* Overview Panel */}
-      <div className="card">
-        <h2 className="card-title">Active Environment & Foundation Status</h2>
-        <p className="card-subtitle">
-          Phase 1 Scaffolding active. FastAPI backend and Supabase PostgreSQL client connected.
-        </p>
-        <div style={{ backgroundColor: 'var(--bg-surface)', padding: 16, borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)', fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text-secondary)' }}>
-          <div>Current Role: <span style={{ color: role === 'planner' ? '#38bdf8' : '#f97316', fontWeight: 600 }}>{role.toUpperCase()}</span></div>
-          <div style={{ marginTop: 4 }}>FastAPI Backend: <span style={{ color: '#10b981' }}>Ready (http://localhost:8000)</span></div>
-          <div style={{ marginTop: 4 }}>Supabase Realtime: <span style={{ color: '#10b981' }}>Enabled</span></div>
-        </div>
-      </div>
+      {error ? (
+        <ErrorState message={error} onRetry={handleRefresh} />
+      ) : loading ? (
+        <LoadingSkeleton rows={4} variant="card" />
+      ) : (
+        <>
+          {/* KPI Metrics */}
+          <ProgressSummary matches={matches} extractions={extractions} />
+
+          {/* 2-Column Analytics Grid */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '1.5rem' }}>
+            <DisciplineBreakdown matches={matches} />
+            <RecentUploads extractions={extractions} />
+          </div>
+        </>
+      )}
     </div>
   );
 };

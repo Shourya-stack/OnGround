@@ -1,0 +1,25 @@
+DAILY PROGRESS REPORT - ELECTRICAL & INSTRUMENTATION
+Date: 2026-09-11
+Contractor: Sterling & Wilson / TrueLine Joint Venture
+Project: Line 247 — EPC Substation Infrastructure
+Location: Substation 3 & Main Piperack Corridor
+Shift: Day Shift (08:00 - 17:30)
+
+1. CABLE TRAY & RACEWAYS:
+- Activity Description: Completed perforated cable tray installation along main piperack corridor Level 2 from Grid E-1 to E-8. Total run completed: 185 linear meters. Work Window: 08:00 to 14:00. Discipline: Electrical. Location: Piperack Corridor Level 2.
+
+2. HIGH VOLTAGE FEEDERS & TERMINATIONS:
+- Activity Description: High voltage 11kV main feeder cable pulling and routing through underground duct bank into Substation 3 switchgear room. Cable tag: 11KV-SWG-01A. Work Window: 09:30 to 16:00. Discipline: Electrical. Location: Substation 3 Switchgear Room.
+- Activity Description: Completed transformer busduct installation and secondary terminations for Transformer T-302 at Substation 3. Megger insulation resistance testing passed (1.2 GigaOhms). Work Window: 11:00 to 17:00. Discipline: Electrical. Location: Substation 3 Transformer Yard.
+
+3. INSTRUMENTATION LOOP CHECKS:
+- Activity Description: Field mounting and calibration of pressure and differential temperature transmitters in Unit 200 process area. 6 transmitters verified against loop datasheet. Work Window: 10:00 to 15:30. Discipline: Instrumentation. Location: Unit 200 Process Area.
+
+Site Manpower & Resources:
+- 18 Electricians, 10 Cable Pulling Technicians, 4 Instrument Techs, 2 Safety Officers
+- 2x Cable Winch Machines, 1x 15T Crane Truck
+- Incidents / HSE Alerts: Zero lost-time incidents (LTI).
+
+Submitted by:
+Electrical Lead Supervisor — A. Sengupta
+Client Representative — John Carter

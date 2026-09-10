@@ -1,0 +1,26 @@
+DAILY PROGRESS REPORT - MECHANICAL & PIPING PACKAGE
+Date: 2026-09-11
+Contractor: Larsen & Toubro / TrueLine EPC Consortium
+Project: Line 247 — Refinery Modernization Package 3
+Location: Unit 200 - Area B (Process Train 1)
+Shift: Day Shift (07:30 - 17:00)
+
+1. PIPING FIT-UP & WELDING:
+- Activity Description: Completed fit-up and GTAW/SMAW root pass welding for 12-inch CS cooling water supply line (Spool ISO-200-CW-04). Welder ID: W-104 & W-109. Location: Unit 200 - Area B, Grid Line B4-B6. Work Window: 08:00 to 14:30. Discipline: Piping.
+- Activity Description: Completed butt welding on 8-inch hydrocarbon headers at Unit 200 overhead rack. 4 joints completed, visual inspection accepted by QC inspector Sharma. Work Window: 10:00 to 16:30. Location: Unit 200 Overhead Rack. Discipline: Piping.
+
+2. HYDROTESTING & TESTING:
+- Activity Description: Conducted hydrostatic pressure testing at 24.5 bar and golden flange bolt torqueing for cooling water test loop 4. Zero pressure drop observed over 2-hour hold period. Work Window: 13:00 to 16:45. Location: Test Loop 4 Manifold. Discipline: Piping.
+
+3. SAFETY & ACCESS:
+- Activity Description: Pre-commissioning scaffold safety certification and fall arrest harness inspection conducted prior to elevated pipe rack welding. Discipline: HSE. Location: Piperack Grid A4. Time: 07:30 to 08:30.
+
+Daily Cumulative Notes:
+- Total Weld Inches Completed Today: 148 dia-inch
+- Equipment Deployed: 4x 400A Diesel Welding Generators, 1x 50T Mobile Crane
+- Manpower on Site: 12 Welders, 8 Riggers, 14 Fitters, 2 QA/QC Engineers, 1 Safety Supervisor
+- Weather: Clear, 32°C, 10 km/h wind. No weather stoppage.
+
+Report Approved by:
+Senior Site Supervisor — Dave Miller
+QA/QC Lead — R. K. Verma
