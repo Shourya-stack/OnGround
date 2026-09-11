@@ -112,19 +112,21 @@ class MatchingService:
         start_time: Optional[datetime] = None,
         end_time: Optional[datetime] = None,
         actor_id: Optional[UUID] = None,
+        plan_activities: Optional[List[Dict[str, Any]]] = None,
     ) -> MatchResult:
         """
         Matches a single extracted activity against the active baseline schedule.
         """
         supabase = get_supabase_client()
-        plan_activities = []
+        if plan_activities is None:
+            plan_activities = []
 
-        if supabase:
-            try:
-                res = supabase.table("schedule_plan").select("*").execute()
-                plan_activities = res.data or []
-            except Exception as e:
-                logger.error(f"Failed to fetch baseline schedule from Supabase: {e}")
+            if supabase:
+                try:
+                    res = supabase.table("schedule_plan").select("*").execute()
+                    plan_activities = res.data or []
+                except Exception as e:
+                    logger.error(f"Failed to fetch baseline schedule from Supabase: {e}")
 
         # If no DB records found, provide synthetic fallback activities for local dev/testing
         if not plan_activities:
@@ -215,7 +217,6 @@ class MatchingService:
                 "plan_activity_id": best_plan["id"],
                 "confidence_score": top_score,
                 "status": status,
-                "match_type": "auto" if status == "auto_linked" else "suggested",
                 "candidates": [c.model_dump(mode="json") for c in candidate_matches] if is_ambiguous else None,
             }
 

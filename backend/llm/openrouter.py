@@ -14,8 +14,8 @@ from backend.llm.provider import LLMProvider
 
 logger = logging.getLogger("trueline.llm")
 
-DEFAULT_MODEL = "meta-llama/llama-3.3-70b-instruct:free"
-FALLBACK_MODEL = "google/gemini-2.0-flash-exp:free"
+DEFAULT_MODEL = "liquid/lfm-2.5-2.6b:free"
+FALLBACK_MODEL = "nvidia/nemotron-3.5-lightning:free"
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 
 SYSTEM_PROMPT = """You are an expert EPC (Engineering, Procurement, Construction) infrastructure project analyst for TrueLine IPIS.

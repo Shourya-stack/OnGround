@@ -248,3 +248,13 @@ CREATE POLICY "Audit trail insert by authenticated"
 
 -- Explicitly disallow UPDATE and DELETE on audit trail
 -- (No policies created for UPDATE/DELETE, guaranteeing append-only behavior)
+
+-- =============================================================================
+-- 6. PERMISSIONS & ROLE GRANTS
+-- =============================================================================
+GRANT ALL ON ALL TABLES IN SCHEMA public TO postgres, anon, authenticated, service_role;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO postgres, anon, authenticated, service_role;
+GRANT ALL ON ALL ROUTINES IN SCHEMA public TO postgres, anon, authenticated, service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO postgres, anon, authenticated, service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO postgres, anon, authenticated, service_role;
+

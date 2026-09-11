@@ -72,8 +72,6 @@ async def confirm_match(
         try:
             update_data = {
                 "status": "confirmed",
-                "reviewed_by": str(current_user.id),
-                "reviewed_at": now_iso,
             }
             supabase.table("schedule_matches").update(update_data).eq("id", str(match_id)).execute()
         except Exception as e:
@@ -109,8 +107,6 @@ async def reject_match(
         try:
             update_data = {
                 "status": "rejected",
-                "reviewed_by": str(current_user.id),
-                "reviewed_at": now_iso,
             }
             supabase.table("schedule_matches").update(update_data).eq("id", str(match_id)).execute()
         except Exception as e:

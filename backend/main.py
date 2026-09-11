@@ -16,7 +16,8 @@ from backend.routes.extract import router as extract_router
 from backend.routes.match import router as match_router
 from backend.routes.review import router as review_router
 
-load_dotenv()
+# Load environment variables with override enabled
+load_dotenv(override=True)
 
 logging.basicConfig(
     level=logging.INFO,

@@ -58,6 +58,15 @@ async def upload_file(
     storage_path = f"raw_reports/{extraction_id}_{filename}"
     file_url = f"/storage/v1/object/reports/{storage_path}"
 
+    # Cache locally as fallback in case remote storage bucket is unprovisioned
+    try:
+        from pathlib import Path
+        upload_dir = Path("data/uploads")
+        upload_dir.mkdir(parents=True, exist_ok=True)
+        (upload_dir / f"{extraction_id}_{filename}").write_bytes(content)
+    except Exception as e:
+        logger.warning(f"Local upload cache warning: {e}")
+
     supabase = get_supabase_client()
     if supabase:
         try:
@@ -72,11 +81,12 @@ async def upload_file(
 
         try:
             # 2. Insert into EXTRACTIONS table
+            file_type = "spreadsheet" if ext in (".csv", ".xlsx", ".xls") else "daily_report"
             row = {
                 "id": str(extraction_id),
-                "source_type": ext.lstrip("."),
-                "file_name": filename,
+                "project_id": "00000000-0000-0000-0000-000000000001",
                 "file_url": file_url,
+                "file_type": file_type,
                 "status": "pending",
             }
             supabase.table("extractions").insert(row).execute()

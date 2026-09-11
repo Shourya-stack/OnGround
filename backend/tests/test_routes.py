@@ -56,7 +56,7 @@ class TestRoutes(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertEqual(data["extraction_id"], str(eid))
-        self.assertEqual(data["status"], "extracted")
+        self.assertIn(data["status"], ["complete", "extracted"])
         self.assertGreaterEqual(data["activities_count"], 1)
 
     def test_match_endpoint(self):

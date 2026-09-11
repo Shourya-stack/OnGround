@@ -42,27 +42,40 @@ async def extract_activities(
     if raw_text:
         file_bytes = raw_text.encode("utf-8")
         filename = "direct_input.txt"
-    elif supabase:
-        try:
-            rec = supabase.table("extractions").select("*").eq("id", str(extraction_id)).execute()
-            if rec.data and len(rec.data) > 0:
-                filename = rec.data[0].get("file_name", "report.txt")
-                file_url = rec.data[0].get("file_url", "")
-                if "reports/" in file_url:
-                    storage_path = file_url.split("reports/")[-1]
-                    file_bytes = supabase.storage.from_("reports").download(storage_path)
-        except Exception as e:
-            logger.error(f"Failed to download file from Supabase Storage: {e}")
+    else:
+        # Check local upload cache first
+        from pathlib import Path
+        upload_dir = Path("data/uploads")
+        matches = list(upload_dir.glob(f"{extraction_id}_*")) if upload_dir.exists() else []
+        if matches:
+            file_bytes = matches[0].read_bytes()
+            filename = matches[0].name.split(f"{extraction_id}_")[-1]
+        elif supabase:
+            try:
+                rec = supabase.table("extractions").select("*").eq("id", str(extraction_id)).execute()
+                if rec.data and len(rec.data) > 0:
+                    file_url = rec.data[0].get("file_url", "")
+                    if "reports/" in file_url:
+                        storage_path = file_url.split("reports/")[-1]
+                        filename = storage_path.split("/")[-1]
+                        file_bytes = supabase.storage.from_("reports").download(storage_path)
+            except Exception as e:
+                logger.error(f"Failed to download file from Supabase Storage: {e}")
 
-    # If still no bytes (e.g. testing or mock upload), supply sample construction log text
+    # If still no bytes (e.g. testing without upload), check sample report
     if not file_bytes:
-        file_bytes = (
-            b"DAILY PROGRESS REPORT - AREA 4\n"
-            b"1. Fit-up and welding of 12-inch CS cooling water line, Unit 200 Area B (08:00 to 14:30). Discipline: Piping.\n"
-            b"2. Cable tray installation and grounding check in Substation 3. Discipline: Electrical.\n"
-            b"3. Foundation excavation and rebar cage tying for pump house. Discipline: Civil.\n"
-        )
-        filename = "sample_report.txt"
+        sample_fallback = Path("data/sample_report_electrical.txt")
+        if sample_fallback.exists():
+            file_bytes = sample_fallback.read_bytes()
+            filename = sample_fallback.name
+        else:
+            file_bytes = (
+                b"DAILY PROGRESS REPORT - AREA 4\n"
+                b"1. Fit-up and welding of 12-inch CS cooling water line, Unit 200 Area B (08:00 to 14:30). Discipline: Piping.\n"
+                b"2. Cable tray installation and grounding check in Substation 3. Discipline: Electrical.\n"
+                b"3. Foundation excavation and rebar cage tying for pump house. Discipline: Civil.\n"
+            )
+            filename = "sample_report.txt"
 
     try:
         service = ExtractionService()
@@ -88,7 +101,7 @@ async def extract_activities(
             saved_activities = res.data or db_payload
 
             # Update EXTRACTIONS status
-            supabase.table("extractions").update({"status": "extracted"}).eq("id", str(extraction_id)).execute()
+            supabase.table("extractions").update({"status": "complete"}).eq("id", str(extraction_id)).execute()
 
             # Record in AUDIT_TRAIL
             log_action(
@@ -108,5 +121,5 @@ async def extract_activities(
         extraction_id=extraction_id,
         activities_count=len(saved_activities),
         activities=saved_activities,
-        status="extracted",
+        status="complete",
     )

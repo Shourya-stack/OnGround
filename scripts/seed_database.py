@@ -42,8 +42,22 @@ def seed_database():
             })
 
     try:
-        res = supabase.table("schedule_plan").upsert(activities, on_conflict="activity_code").execute()
-        print(f"Successfully seeded {len(activities)} baseline schedule activities into Supabase.")
+        # Check existing activities to avoid duplicates without relying on unique constraint
+        existing = supabase.table("schedule_plan").select("activity_code").execute()
+        existing_codes = {row["activity_code"] for row in (existing.data or [])}
+
+        to_insert = [act for act in activities if act["activity_code"] not in existing_codes]
+
+        if to_insert:
+            supabase.table("schedule_plan").insert(to_insert).execute()
+            print(f"Successfully inserted {len(to_insert)} new baseline schedule activities into Supabase.")
+        else:
+            print("All 21 baseline schedule activities already exist in Supabase.")
+
+        # Verify final count
+        verify = supabase.table("schedule_plan").select("activity_code, activity_description, discipline").execute()
+        total_count = len(verify.data) if verify.data else 0
+        print(f"Verification: schedule_plan now contains {total_count} activities.")
     except Exception as e:
         print(f"Seeding error: {e}")
 

@@ -21,20 +21,28 @@ def log_action(
     previous_state: Optional[Dict[str, Any]] = None,
     new_state: Optional[Dict[str, Any]] = None,
     reason: Optional[str] = None,
+    confidence_score: Optional[float] = None,
 ) -> Optional[Dict[str, Any]]:
     """
     Appends an immutable record to the AUDIT_TRAIL table.
     """
     supabase = get_supabase_client()
+    
+    # Map action to schema constraint: ('extracted', 'auto_linked', 'flagged', 'confirmed', 'rejected', 'manually_linked')
+    normalized_action = action.lower()
+    if normalized_action in ("confirm_match", "confirm"):
+        normalized_action = "confirmed"
+    elif normalized_action in ("reject_match", "reject"):
+        normalized_action = "rejected"
+    elif normalized_action in ("matched", "auto_match"):
+        normalized_action = "auto_linked"
+
     payload = {
-        "entity_type": entity_type,
-        "entity_id": str(entity_id),
-        "action": action,
-        "actor_id": str(actor_id) if actor_id else None,
-        "actor_role": actor_role,
-        "previous_state": previous_state,
-        "new_state": new_state,
-        "reason": reason,
+        "related_match_id": str(entity_id) if entity_type == "schedule_matches" else None,
+        "related_unmatched_id": str(entity_id) if entity_type == "unmatched_activities" else None,
+        "action": normalized_action,
+        "confidence_score": confidence_score or (new_state.get("confidence_score") if new_state else None),
+        "actor": str(actor_id) if actor_id else None,
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
 
