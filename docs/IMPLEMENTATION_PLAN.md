@@ -1467,7 +1467,7 @@ Frontend `.env`: `VITE_API_BASE_URL=http://localhost:8000`
 
 ```
 GitHub
-  |-- frontend/ -> Vercel -> https://onground.vercel.app
+  |-- frontend/ -> Vercel -> https://on-ground.vercel.app
   |-- backend/  -> Cloud-hosted FastAPI (provider TBD — UD2)
                       |
                   Supabase Cloud

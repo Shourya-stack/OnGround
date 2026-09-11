@@ -18,7 +18,7 @@ DEFAULT_MODEL = "liquid/lfm-2.5-2.6b:free"
 FALLBACK_MODEL = "nvidia/nemotron-3.5-lightning:free"
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 
-SYSTEM_PROMPT = """You are an expert EPC (Engineering, Procurement, Construction) infrastructure project analyst for OnGround IPIS.
+SYSTEM_PROMPT = """You are an expert EPC (Engineering, Procurement, Construction) infrastructure project analyst for OnGround.
 Your task is to parse raw daily progress reports, shift logs, or spreadsheet text and extract individual construction activities.
 
 For each distinct activity mentioned in the text, extract:
@@ -76,7 +76,7 @@ class OpenRouterProvider(LLMProvider):
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
             "HTTP-Referer": "https://github.com/Shourya-stack/OnGround",
-            "X-Title": "OnGround IPIS",
+            "X-Title": "OnGround",
         }
 
         payload = {

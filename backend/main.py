@@ -36,7 +36,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="OnGround — IPIS API",
+    title="OnGround API",
     description="Automated Progress Tracking & Schedule-Linking for EPC Megaprojects",
     version="1.0.0",
     lifespan=lifespan

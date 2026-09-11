@@ -55,7 +55,7 @@ This guide covers deploying OnGround for the **Smart India Hackathon 2026** (Pro
    - `SUPABASE_SERVICE_KEY`: Your Supabase service_role key
    - `OPENROUTER_API_KEY`: Your OpenRouter API key
    - `LLM_MODEL`: `meta-llama/llama-3.3-70b-instruct:free`
-   - `FRONTEND_URL`: Your Vercel frontend URL (e.g., `https://onground.vercel.app`)
+   - `FRONTEND_URL`: Your Vercel frontend URL (e.g., `https://on-ground.vercel.app`)
 
 ### Option B: Docker Container
 * Build and run the container:
@@ -73,7 +73,7 @@ This guide covers deploying OnGround for the **Smart India Hackathon 2026** (Pro
 3. Configure Environment Variables in Vercel Dashboard:
    - `VITE_SUPABASE_URL`: Your Supabase Project URL
    - `VITE_SUPABASE_ANON_KEY`: Your Supabase `anon` public key
-   - `VITE_API_BASE_URL`: Your deployed Render backend URL (e.g., `https://onground-backend.onrender.com`)
+   - `VITE_API_BASE_URL`: Your deployed Render backend URL (e.g., `https://onground.onrender.com`)
 4. Deploy! Vercel will automatically build the React SPA using `vercel.json` rewrite rules.
 
 ---

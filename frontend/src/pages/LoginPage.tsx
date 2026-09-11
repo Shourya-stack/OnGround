@@ -21,7 +21,7 @@ export const LoginPage: React.FC = () => {
             <Layers size={28} />
           </div>
           <h1 style={{ fontSize: 22, fontWeight: 700, color: '#ffffff', marginBottom: 4 }}>OnGround</h1>
-          <p style={{ color: 'var(--text-secondary)', fontSize: 13 }}>Infrastructure Progress Intelligence System</p>
+          <p style={{ color: 'var(--text-secondary)', fontSize: 13 }}>Infrastructure Progress & Schedule Intelligence</p>
         </div>
 
         <form onSubmit={handleLogin}>
