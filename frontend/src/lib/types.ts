@@ -1,5 +1,5 @@
 /**
- * TrueLine — Core TypeScript Data Types
+ * OnGround — Core TypeScript Data Types
  * Matches the Supabase PostgreSQL Schema and FastAPI API models.
  */
 

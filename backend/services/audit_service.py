@@ -1,5 +1,5 @@
 """
-Audit Trail Logging Service for TrueLine IPIS.
+Audit Trail Logging Service for OnGround IPIS.
 Provides append-only logging of lifecycle events across extractions, activities, and schedule matches.
 """
 
@@ -9,7 +9,7 @@ from uuid import UUID
 from datetime import datetime, timezone
 from backend.db.supabase_client import get_supabase_client
 
-logger = logging.getLogger("trueline.audit")
+logger = logging.getLogger("onground.audit")
 
 
 def log_action(

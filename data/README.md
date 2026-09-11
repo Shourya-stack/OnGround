@@ -1,4 +1,4 @@
-# TrueLine IPIS — Test Datasets & Demo Artifacts
+# OnGround IPIS — Test Datasets & Demo Artifacts
 
 This directory contains synthetic datasets generated specifically for the **Smart India Hackathon (SIH 2026) Problem Statement 26122: Infrastructure Data Capture & Schedule-Linking**.
 

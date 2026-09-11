@@ -1,5 +1,5 @@
 """
-Database Seeder Script for TrueLine IPIS.
+Database Seeder Script for OnGround IPIS.
 Populates the baseline schedule from data/baseline_schedule.csv into Supabase.
 """
 
@@ -15,7 +15,7 @@ from backend.db.supabase_client import get_supabase_client
 
 
 def seed_database():
-    print("Starting database seeding for TrueLine IPIS...")
+    print("Starting database seeding for OnGround IPIS...")
     csv_path = ROOT_DIR / "data" / "baseline_schedule.csv"
 
     if not csv_path.exists():

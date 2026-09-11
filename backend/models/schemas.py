@@ -1,5 +1,5 @@
 """
-Pydantic schemas and validation models for TrueLine.
+Pydantic schemas and validation models for OnGround.
 """
 
 from typing import Optional, List, Dict, Any

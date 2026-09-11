@@ -1,8 +1,8 @@
-# TrueLine — Phase
+# OnGround — Phase
 
 Living status file — update this whenever a phase completes or the plan changes. This is the single source of truth for "where are we right now," so anyone (or any AI agent) picking up the project mid-hackathon starts here.
 
-## Current phase: **All Phases Complete (0 to 6) — TrueLine IPIS Production & Hackathon Ready**
+## Current phase: **All Phases Complete (0 to 6) — OnGround IPIS Production & Hackathon Ready**
 
 ## Phase overview
 

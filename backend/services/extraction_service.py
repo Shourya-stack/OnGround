@@ -1,5 +1,5 @@
 """
-Extraction Service for TrueLine IPIS.
+Extraction Service for OnGround IPIS.
 Handles multi-format file parsing (PDF, CSV/XLSX, TXT), text normalization,
 LLM orchestration, and deterministic confidence scoring.
 """
@@ -16,7 +16,7 @@ from backend.llm.provider import LLMProvider
 from backend.llm.openrouter import OpenRouterProvider
 from backend.models.schemas import ExtractedActivityRaw, ExtractedActivityCreate
 
-logger = logging.getLogger("trueline.extraction")
+logger = logging.getLogger("onground.extraction")
 
 
 def extract_text_from_file(file_bytes: bytes, filename: str) -> str:

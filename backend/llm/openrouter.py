@@ -1,5 +1,5 @@
 """
-OpenRouter LLM Provider Implementation for TrueLine.
+OpenRouter LLM Provider Implementation for OnGround.
 Calls OpenRouter API using free-tier models (default: meta-llama/llama-3.3-70b-instruct:free)
 with structured system prompt, error handling, timeout, and retry logic.
 """
@@ -12,13 +12,13 @@ import httpx
 from typing import Optional
 from backend.llm.provider import LLMProvider
 
-logger = logging.getLogger("trueline.llm")
+logger = logging.getLogger("onground.llm")
 
 DEFAULT_MODEL = "liquid/lfm-2.5-2.6b:free"
 FALLBACK_MODEL = "nvidia/nemotron-3.5-lightning:free"
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 
-SYSTEM_PROMPT = """You are an expert EPC (Engineering, Procurement, Construction) infrastructure project analyst for TrueLine IPIS.
+SYSTEM_PROMPT = """You are an expert EPC (Engineering, Procurement, Construction) infrastructure project analyst for OnGround IPIS.
 Your task is to parse raw daily progress reports, shift logs, or spreadsheet text and extract individual construction activities.
 
 For each distinct activity mentioned in the text, extract:
@@ -31,7 +31,7 @@ For each distinct activity mentioned in the text, extract:
 STRICT INSTRUCTIONS:
 1. Return ONLY a valid JSON array of activity objects.
 2. Do NOT wrap the JSON in conversational text.
-3. Do NOT invent confidence scores or include confidence keys; confidence is calculated deterministically by TrueLine backend.
+3. Do NOT invent confidence scores or include confidence keys; confidence is calculated deterministically by OnGround backend.
 4. If no activities are found, return an empty array `[]`.
 
 Example output format:
@@ -75,8 +75,8 @@ class OpenRouterProvider(LLMProvider):
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
-            "HTTP-Referer": "https://github.com/trueline-ipis",
-            "X-Title": "TrueLine IPIS",
+            "HTTP-Referer": "https://github.com/Shourya-stack/OnGround",
+            "X-Title": "OnGround IPIS",
         }
 
         payload = {

@@ -28,8 +28,7 @@ export const Sidebar: React.FC = () => {
           <Layers size={22} className="brand-icon" />
         </div>
         <div className="brand-text">
-          <span className="brand-title">TrueLine</span>
-          <span className="brand-sub">IPIS • SIH 26122</span>
+          <span className="brand-title">OnGround</span>
         </div>
       </div>
 

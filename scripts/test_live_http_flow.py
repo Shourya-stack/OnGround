@@ -1,5 +1,5 @@
 """
-Live HTTP Integration Verification Script for TrueLine IPIS.
+Live HTTP Integration Verification Script for OnGround IPIS.
 Sends real HTTP multipart and JSON requests to the running FastAPI server (http://127.0.0.1:8000)
 and validates the complete pipeline and live database state in Supabase.
 """
@@ -20,7 +20,7 @@ BASE_URL = "http://127.0.0.1:8000"
 
 def run_live_http_verification():
     print("======================================================================")
-    print("TRUELINE IPIS — LIVE HTTP E2E VERIFICATION")
+    print("ONGROUND IPIS — LIVE HTTP E2E VERIFICATION")
     print("======================================================================")
 
     client = httpx.Client(base_url=BASE_URL, timeout=60.0)

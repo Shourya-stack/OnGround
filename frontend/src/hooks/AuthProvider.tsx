@@ -1,5 +1,5 @@
 /**
- * TrueLine — AuthProvider Implementation
+ * OnGround — AuthProvider Implementation
  */
 
 import React, { useState, useEffect } from 'react';
@@ -90,7 +90,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const switchRoleForDemo = (newRole: UserRole) => {
     setRole(newRole);
-    localStorage.setItem('trueline_demo_role', newRole);
+    localStorage.setItem('onground_demo_role', newRole);
     if (profile) {
       setProfile({ ...profile, role: newRole });
     }

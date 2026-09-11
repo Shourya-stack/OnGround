@@ -1,4 +1,4 @@
-# TrueLine — Error Handling
+# OnGround — Error Handling
 
 Note: `/AI/GUARDRAILS.md` covers AI-specific failure modes (hallucination, low confidence, ambiguous matches). This file covers ordinary application errors — network, validation, infra — across the rest of the stack.
 

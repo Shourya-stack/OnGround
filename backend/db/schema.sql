@@ -1,5 +1,5 @@
 -- =============================================================================
--- TrueLine — Database Schema (PostgreSQL / Supabase)
+-- OnGround — Database Schema (PostgreSQL / Supabase)
 -- Authoritative schema definition for SIH 2026 Problem Statement 26122
 -- =============================================================================
 

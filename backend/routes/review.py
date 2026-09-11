@@ -14,7 +14,7 @@ from backend.db.supabase_client import get_supabase_client
 from backend.services.audit_service import log_action
 
 router = APIRouter(prefix="", tags=["Review"])
-logger = logging.getLogger("trueline.review")
+logger = logging.getLogger("onground.review")
 
 
 def get_current_user(

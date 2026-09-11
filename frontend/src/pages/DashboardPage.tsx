@@ -40,7 +40,7 @@ export const DashboardPage: React.FC = () => {
       >
         <div>
           <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--color-text)' }}>
-            TrueLine Project Intelligence Dashboard
+            OnGround Project Intelligence Dashboard
           </h1>
           <p style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', marginTop: '0.35rem' }}>
             Automated EPC Progress Capture & Primavera P6 Schedule Linking • Role:{' '}

@@ -1,8 +1,8 @@
-# TrueLine — Integrations
+# OnGround — Integrations
 
 ## v1: no live external system integrations
 
-TrueLine's prototype reads Primavera/MS Project data as a **file export** (CSV/Excel of the L5/L6 schedule), not via a live API connection — building and authenticating against a real Primavera integration is heavy infrastructure that doesn't change what the prototype needs to prove: that extraction + fuzzy matching works. This mirrors the parent PS's own scoping ("full production-grade OCR/ASR is not required").
+OnGround's prototype reads Primavera/MS Project data as a **file export** (CSV/Excel of the L5/L6 schedule), not via a live API connection — building and authenticating against a real Primavera integration is heavy infrastructure that doesn't change what the prototype needs to prove: that extraction + fuzzy matching works. This mirrors the parent PS's own scoping ("full production-grade OCR/ASR is not required").
 
 ## What's simulated vs. real in the demo
 

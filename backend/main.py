@@ -1,5 +1,5 @@
 """
-TrueLine — Infrastructure Progress Intelligence System (IPIS)
+OnGround — Infrastructure Progress Intelligence System (IPIS)
 FastAPI Backend Application Entry Point.
 """
 
@@ -23,20 +23,20 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
 )
-logger = logging.getLogger("trueline")
+logger = logging.getLogger("onground")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application startup and shutdown events."""
-    logger.info("Starting TrueLine Backend API...")
+    logger.info("Starting OnGround Backend API...")
     # In Phase 2: sentence-transformers model preload will be initialized here
     yield
-    logger.info("TrueLine Backend API shutdown.")
+    logger.info("OnGround Backend API shutdown.")
 
 
 app = FastAPI(
-    title="TrueLine — IPIS API",
+    title="OnGround — IPIS API",
     description="Automated Progress Tracking & Schedule-Linking for EPC Megaprojects",
     version="1.0.0",
     lifespan=lifespan

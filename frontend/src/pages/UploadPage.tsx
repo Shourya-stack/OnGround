@@ -76,7 +76,7 @@ export const UploadPage: React.FC = () => {
           Ingest Daily Progress Reports
         </h1>
         <p style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', marginTop: '0.35rem' }}>
-          Upload PDF reports, CSV logs, or spreadsheets. TrueLine AI extracts physical tasks and links them semantically to Primavera/P6 baseline WBS activities.
+          Upload PDF reports, CSV logs, or spreadsheets. OnGround AI extracts physical tasks and links them semantically to Primavera/P6 baseline WBS activities.
         </p>
       </div>
 

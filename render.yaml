@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: trueline-backend
+    name: onground-backend
     env: python
     region: oregon
     buildCommand: pip install --no-cache-dir --upgrade pip && pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu && pip install --no-cache-dir -r backend/requirements.txt

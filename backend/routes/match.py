@@ -13,7 +13,7 @@ from backend.db.supabase_client import get_supabase_client
 from backend.services.matching_service import MatchingService
 
 router = APIRouter(prefix="", tags=["Matching"])
-logger = logging.getLogger("trueline.match")
+logger = logging.getLogger("onground.match")
 
 
 @router.post("/match/{extracted_activity_id}", response_model=MatchResult)

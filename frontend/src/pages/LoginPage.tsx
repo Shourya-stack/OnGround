@@ -5,7 +5,7 @@ import { UserRole } from '../lib/types';
 
 export const LoginPage: React.FC = () => {
   const { signIn } = useAuth();
-  const [email, setEmail] = useState('planner@trueline.com');
+  const [email, setEmail] = useState('planner@onground.com');
   const [selectedRole, setSelectedRole] = useState<UserRole>('planner');
 
   const handleLogin = (e: React.FormEvent) => {
@@ -20,7 +20,7 @@ export const LoginPage: React.FC = () => {
           <div style={{ width: 48, height: 48, margin: '0 auto 12px', background: 'linear-gradient(135deg, #0284c7, #38bdf8)', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ffffff' }}>
             <Layers size={28} />
           </div>
-          <h1 style={{ fontSize: 22, fontWeight: 700, color: '#ffffff', marginBottom: 4 }}>TrueLine</h1>
+          <h1 style={{ fontSize: 22, fontWeight: 700, color: '#ffffff', marginBottom: 4 }}>OnGround</h1>
           <p style={{ color: 'var(--text-secondary)', fontSize: 13 }}>Infrastructure Progress Intelligence System</p>
         </div>
 
@@ -36,7 +36,7 @@ export const LoginPage: React.FC = () => {
                 style={{ justifyContent: 'center', padding: 10 }}
                 onClick={() => {
                   setSelectedRole('planner');
-                  setEmail('planner@trueline.com');
+                  setEmail('planner@onground.com');
                 }}
               >
                 <Shield size={16} />
@@ -48,7 +48,7 @@ export const LoginPage: React.FC = () => {
                 style={{ justifyContent: 'center', padding: 10 }}
                 onClick={() => {
                   setSelectedRole('supervisor');
-                  setEmail('supervisor@trueline.com');
+                  setEmail('supervisor@onground.com');
                 }}
               >
                 <ShieldAlert size={16} />
@@ -97,7 +97,7 @@ export const LoginPage: React.FC = () => {
               cursor: 'pointer'
             }}
           >
-            <span>Enter TrueLine System</span>
+            <span>Enter OnGround System</span>
             <ArrowRight size={16} />
           </button>
         </form>

@@ -1,14 +1,14 @@
-# TrueLine — Infrastructure Progress Intelligence System (IPIS)
+# OnGround — Infrastructure Progress Intelligence System (IPIS)
 
 > **SIH 2026 Problem Statement 26122:** Infrastructure Data Capture & Schedule-Linking
 
-TrueLine is an automated progress tracking and schedule-linking platform designed for EPC and infrastructure megaprojects. It bridges the critical gap between chaotic, unstructured daily site progress reports (PDFs, daily logs, spreadsheets, notes) and rigid project schedules (Primavera P6 / baseline WBS).
+OnGround is an automated progress tracking and schedule-linking platform designed for EPC and infrastructure megaprojects. It bridges the critical gap between chaotic, unstructured daily site progress reports (PDFs, daily logs, spreadsheets, notes) and rigid project schedules (Primavera P6 / baseline WBS).
 
 ---
 
 ## Architecture Overview
 
-TrueLine uses a dual-engine architecture:
+OnGround uses a dual-engine architecture:
 1. **Extraction Engine (LLM abstraction)**: Parses unstructured daily logs into normalized, structured activity entries with deterministic server-side confidence scoring.
 2. **Matching Engine (`sentence-transformers`)**: Deterministic embedding-based cosine similarity with discipline & date filtering, contextual scoring, and 3-tier confidence banding (`auto_linked`, `pending_review`, `unmatched`).
 

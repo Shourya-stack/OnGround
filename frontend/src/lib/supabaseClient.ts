@@ -1,5 +1,5 @@
 /**
- * Supabase client singleton for TrueLine Frontend.
+ * Supabase client singleton for OnGround Frontend.
  * Uses anon key — row-level security (RLS) is the security boundary.
  */
 

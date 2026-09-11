@@ -1,5 +1,5 @@
 """
-Supabase client singleton for TrueLine backend.
+Supabase client singleton for OnGround backend.
 Uses the SUPABASE_SERVICE_KEY to perform privileged operations (bypassing RLS for system writes).
 """
 
@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 
 load_dotenv(override=True)
 
-logger = logging.getLogger("trueline.db")
+logger = logging.getLogger("onground.db")
 
 _supabase_client = None
 _cached_url = None

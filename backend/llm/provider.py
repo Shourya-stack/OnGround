@@ -1,6 +1,6 @@
 """
 LLM Provider Abstraction Interface.
-Allows TrueLine to switch between OpenRouter, Claude, Gemini, or local models
+Allows OnGround to switch between OpenRouter, Claude, Gemini, or local models
 without altering the core extraction business logic.
 """
 

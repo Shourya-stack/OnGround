@@ -1,6 +1,6 @@
-# TrueLine IPIS — Cloud & Local Deployment Guide
+# OnGround IPIS — Cloud & Local Deployment Guide
 
-This guide covers deploying TrueLine for the **Smart India Hackathon 2026** (Problem Statement 26122: Infrastructure Data Capture & Schedule-Linking).
+This guide covers deploying OnGround for the **Smart India Hackathon 2026** (Problem Statement 26122: Infrastructure Data Capture & Schedule-Linking).
 
 ---
 
@@ -28,7 +28,7 @@ This guide covers deploying TrueLine for the **Smart India Hackathon 2026** (Pro
 ## 2. Supabase Setup (Database & Storage)
 
 1. **Create Supabase Project:**
-   - Go to [supabase.com](https://supabase.com) and create a new project (e.g., `trueline-ipis`).
+   - Go to [supabase.com](https://supabase.com) and create a new project (e.g., `onground-ipis`).
 2. **Execute Schema SQL:**
    - In Supabase SQL Editor, paste and run the contents of [`backend/db/schema.sql`](file:///c:/Users/SHOURYA/OneDrive/Desktop/SIH26122/backend/db/schema.sql).
 3. **Storage Bucket:**
@@ -55,13 +55,13 @@ This guide covers deploying TrueLine for the **Smart India Hackathon 2026** (Pro
    - `SUPABASE_SERVICE_KEY`: Your Supabase service_role key
    - `OPENROUTER_API_KEY`: Your OpenRouter API key
    - `LLM_MODEL`: `meta-llama/llama-3.3-70b-instruct:free`
-   - `FRONTEND_URL`: Your Vercel frontend URL (e.g., `https://trueline.vercel.app`)
+   - `FRONTEND_URL`: Your Vercel frontend URL (e.g., `https://onground.vercel.app`)
 
 ### Option B: Docker Container
 * Build and run the container:
   ```bash
-  docker build -t trueline-backend .
-  docker run -p 8000:8000 --env-file backend/.env trueline-backend
+  docker build -t onground-backend .
+  docker run -p 8000:8000 --env-file backend/.env onground-backend
   ```
 
 ---
@@ -73,7 +73,7 @@ This guide covers deploying TrueLine for the **Smart India Hackathon 2026** (Pro
 3. Configure Environment Variables in Vercel Dashboard:
    - `VITE_SUPABASE_URL`: Your Supabase Project URL
    - `VITE_SUPABASE_ANON_KEY`: Your Supabase `anon` public key
-   - `VITE_API_BASE_URL`: Your deployed Render backend URL (e.g., `https://trueline-backend.onrender.com`)
+   - `VITE_API_BASE_URL`: Your deployed Render backend URL (e.g., `https://onground-backend.onrender.com`)
 4. Deploy! Vercel will automatically build the React SPA using `vercel.json` rewrite rules.
 
 ---
@@ -91,4 +91,4 @@ If internet connectivity fails at the hackathon venue:
    cd frontend
    npm run dev
    ```
-3. Open `http://localhost:5173`. TrueLine automatically activates offline fallback extraction and mock datasets with zero external dependencies.
+3. Open `http://localhost:5173`. OnGround automatically activates offline fallback extraction and mock datasets with zero external dependencies.

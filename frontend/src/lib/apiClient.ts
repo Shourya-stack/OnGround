@@ -21,7 +21,7 @@ export class ApiError extends Error {
 
 async function getAuthHeader(): Promise<HeadersInit> {
   const { data: { session } } = await supabase.auth.getSession();
-  const demoRole = localStorage.getItem('trueline_demo_role') || 'planner';
+  const demoRole = localStorage.getItem('onground_demo_role') || 'planner';
   const headers: HeadersInit = {
     'X-User-Role': demoRole,
   };

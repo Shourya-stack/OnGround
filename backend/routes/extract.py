@@ -14,7 +14,7 @@ from backend.services.extraction_service import ExtractionService
 from backend.services.audit_service import log_action
 
 router = APIRouter(prefix="", tags=["Extraction"])
-logger = logging.getLogger("trueline.extract")
+logger = logging.getLogger("onground.extract")
 
 
 @router.post("/extract/{extraction_id}", response_model=ExtractionResponse)

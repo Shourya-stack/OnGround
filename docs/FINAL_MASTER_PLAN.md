@@ -1,4 +1,4 @@
-# TrueLine — Final Master Plan
+# OnGround — Final Master Plan
 
 **Status:** Authoritative — this document supersedes all prior documents where they conflict.
 
@@ -6,7 +6,7 @@
 
 ## Executive Summary
 
-TrueLine is a B2B web application that converts messy construction progress data into structured, confidence-scored, schedule-linked project intelligence.
+OnGround is a B2B web application that converts messy construction progress data into structured, confidence-scored, schedule-linked project intelligence.
 
 The core loop is:
 
@@ -166,7 +166,7 @@ The exact backend hosting provider will be selected during implementation based 
 ## Repository Structure
 
 ```
-TrueLine/
+OnGround/
 ├── frontend/
 ├── backend/
 ├── data/

@@ -1,4 +1,4 @@
-# TrueLine — Decision Log
+# OnGround — Decision Log
 
 Real judgment calls made during planning, in the order they were made. Each entry: what was decided, what the alternative was, and why. Add a new entry here whenever a real decision gets made during the build — not for routine implementation, only for genuine forks in the road (per `AI_INSTRUCTIONS.md`).
 
@@ -36,23 +36,23 @@ A real P6 EPPM API integration is heavy infrastructure unrelated to what the pro
 
 **D11 — Free-tier LLM provider, not Claude**
 EXISTING DECISION: Claude API as the extraction provider.
-NEW DECISION: The TrueLine hackathon MVP will use a free-tier LLM API through a provider abstraction instead of locking the product to Claude. The project must be developed and demonstrated at zero API cost where possible. The extraction service depends on an LLM provider interface — provider/model selection is configurable through environment variables (`LLM_PROVIDER`, `LLM_MODEL`, `OPENROUTER_API_KEY`). Current preferred provider: OpenRouter free-tier/free-model routing, subject to availability at implementation time. FUTURE: Claude, Gemini, or other providers can be added without rewriting extraction business logic.
+NEW DECISION: The OnGround hackathon MVP will use a free-tier LLM API through a provider abstraction instead of locking the product to Claude. The project must be developed and demonstrated at zero API cost where possible. The extraction service depends on an LLM provider interface — provider/model selection is configurable through environment variables (`LLM_PROVIDER`, `LLM_MODEL`, `OPENROUTER_API_KEY`). Current preferred provider: OpenRouter free-tier/free-model routing, subject to availability at implementation time. FUTURE: Claude, Gemini, or other providers can be added without rewriting extraction business logic.
 
 **D12 — Public hackathon deployment (GitHub + Vercel + cloud-hosted FastAPI)**
 EXISTING DECISION: Demo on local machine/cloud IDE only; production deployment out of scope.
-NEW DECISION: TrueLine will be deployment-ready for public hackathon demonstration. Target: GitHub + Vercel frontend + cloud-hosted FastAPI backend + Supabase. Judges should be able to access the working product through a public URL instead of relying exclusively on localhost. Scope: hackathon/demo deployment only. NOT INCLUDED: Production AWS/GCP infrastructure.
+NEW DECISION: OnGround will be deployment-ready for public hackathon demonstration. Target: GitHub + Vercel frontend + cloud-hosted FastAPI backend + Supabase. Judges should be able to access the working product through a public URL instead of relying exclusively on localhost. Scope: hackathon/demo deployment only. NOT INCLUDED: Production AWS/GCP infrastructure.
 
 **D13 — Dual local + cloud development**
 NEW DECISION: The same codebase must support local development and public cloud deployment. Environment variables control all URLs and secrets — no hardcoded environment-specific values. Local development is faster and provides a fallback if deployment fails before the demo.
 
 **D14 — OpenRouter Free-Tier Default Model: LLaMA 3.3 70B Instruct Free**
-DECISION: TrueLine defaults to `meta-llama/llama-3.3-70b-instruct:free` on OpenRouter for free-tier JSON extraction, with seamless runtime fallback to `google/gemini-2.0-flash-exp:free` or any model specified via the `LLM_MODEL` environment variable. OpenRouter provides reliable OpenAI-compatible chat completion endpoints with free access tiers.
+DECISION: OnGround defaults to `meta-llama/llama-3.3-70b-instruct:free` on OpenRouter for free-tier JSON extraction, with seamless runtime fallback to `google/gemini-2.0-flash-exp:free` or any model specified via the `LLM_MODEL` environment variable. OpenRouter provides reliable OpenAI-compatible chat completion endpoints with free access tiers.
 
 **D15 — CSS & Styling Approach: Tokenized Native CSS Design System**
-DECISION: TrueLine utilizes a custom CSS custom properties (tokens) design system in `index.css`. Provides tailored dark-mode EPC megaproject palette (`#0B0F17`, `#111827`, `#3B82F6`, `#10B981`, `#F59E0B`, `#EF4444`), glassmorphism, responsive data tables, confidence badges, and smooth micro-interactions without third-party build friction or CSS bloat.
+DECISION: OnGround utilizes a custom CSS custom properties (tokens) design system in `index.css`. Provides tailored dark-mode EPC megaproject palette (`#0B0F17`, `#111827`, `#3B82F6`, `#10B981`, `#F59E0B`, `#EF4444`), glassmorphism, responsive data tables, confidence badges, and smooth micro-interactions without third-party build friction or CSS bloat.
 
 **D16 — Backend Cloud Hosting Provider: Render (with Universal Docker Fallback)**
-DECISION: TrueLine standardizes on Render for free-tier FastAPI cloud hosting (`render.yaml`), supplemented by a root `Dockerfile` and `Procfile` for universal 1-click compatibility on Railway, Fly.io, or Hugging Face Spaces. Dual local + cloud support ensures uninterrupted demonstration regardless of external network latency.
+DECISION: OnGround standardizes on Render for free-tier FastAPI cloud hosting (`render.yaml`), supplemented by a root `Dockerfile` and `Procfile` for universal 1-click compatibility on Railway, Fly.io, or Hugging Face Spaces. Dual local + cloud support ensures uninterrupted demonstration regardless of external network latency.
 
 
 

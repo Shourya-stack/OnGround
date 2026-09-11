@@ -1,4 +1,4 @@
-# TrueLine — Complete Implementation Plan
+# OnGround — Complete Implementation Plan
 
 **Document type:** Implementation Blueprint  
 **Status:** DRAFT — awaiting approval before execution begins  
@@ -53,7 +53,7 @@ All decisions below derive from the following documents. In case of any conflict
 6. `PRODUCT_PERSONAS_FLOWS_USECASES.md` (UX source)
 7. `PHASE.md`, `TASKS.md` (execution plan)
 
-**Locked decisions that must not be overridden:**
+**Locked decisions that must not be overridden** (sourced from `DECISION_LOG.md` D1–D13):
 
 | Decision | What is locked |
 |---|---|
@@ -68,6 +68,16 @@ All decisions below derive from the following documents. In case of any conflict
 | D11 | LLM provider abstraction; OpenRouter free-tier preferred; switchable via env vars |
 | D12 | Public deployment: GitHub + Vercel + cloud-hosted FastAPI |
 | D13 | Same codebase, dual local + cloud via env vars |
+
+**Unresolved decisions** (D1–D13 are locked decisions recorded in `DECISION_LOG.md`; new decisions made during the build will receive the next available decision number and be added to `DECISION_LOG.md` at the time they are made):
+
+Three decisions currently remain unresolved (UD1, UD2, UD3). Decision numbers are NOT assigned merely to fill gaps. They are represented strictly as unresolved decisions until actually made. See Section 25 for full context. They are listed here for visibility:
+
+| Identifier | What is open | Must be decided by |
+|---|---|---|
+| UD1 — Exact free OpenRouter model | Which free model to use on OpenRouter | Start of Phase 2 |
+| UD2 — Cloud FastAPI hosting provider | Which provider hosts the FastAPI backend for public demo | Start of Phase 6 |
+| UD3 — CSS / styling approach | Tailwind v3, Vanilla CSS, or CSS Modules | Before Phase 3 |
 
 ---
 
@@ -496,19 +506,19 @@ Band thresholds (starting values — calibrated in Phase 5):
 
 ### 5.1 Unresolved Decision (CSS Approach) — MUST BE DECIDED BEFORE PHASE 3
 
-> **OPEN DECISION — Unresolved Decision 3 (UD3)**
+> **OPEN DECISION — UD3 (Unresolved Decision)**
 >
-> `PRODUCT_FEATURES.md` Feature 5 MVP mentions "React + Tailwind CSS" but `TECH_STACK.md` and `FINAL_MASTER_PLAN.md` say "React" only — no CSS framework specified. This is an existing documentation inconsistency (see Appendix).
+> `PRODUCT_FEATURES.md` Feature 5 MVP mentions "React + Tailwind CSS" but `TECH_STACK.md` and `FINAL_MASTER_PLAN.md` say "React" only — no CSS framework specified. This is an existing documentation inconsistency (see Appendix C1).
 >
 > **Options:** Tailwind CSS v3 / Vanilla CSS with CSS custom properties / CSS Modules
 >
 > **Planning recommendation:** Tailwind CSS v3 — fastest for a 36-hour build, extensive component patterns, good React integration.
 >
-> **The developer must decide and document this as D16 in DECISION_LOG.md before Phase 3 begins. This cannot be changed mid-build.**
+> **This decision must be made and written to `DECISION_LOG.md` under the next available decision number before Phase 3 begins. It cannot be changed mid-build. Until then, it remains an unresolved decision (UD3).**
 
 ### 5.2 Design Language
 
-TrueLine is a **serious professional infrastructure operations product**, not a consumer app. Visual language must reflect this.
+OnGround is a **serious professional infrastructure operations product**, not a consumer app. Visual language must reflect this.
 
 - **Tone:** Data-dense but readable. Functional, not decorative.
 - **Typography:** Professional sans-serif. Inter recommended. NOT decorative display fonts.
@@ -928,9 +938,41 @@ After sorting candidates by `final_score` descending:
 
 **Action:** Store top-3 candidates in `SCHEDULE_MATCHES.candidates` (jsonb column). Frontend `<DisambiguationPanel>` detects this condition and renders side-by-side UI.
 
-**Schema note:** Requires `candidates jsonb` column on `SCHEDULE_MATCHES`. This is an addition to DATABASE.md — see Appendix for full contradiction list.
+**Schema note:** Requires `candidates jsonb` column on `SCHEDULE_MATCHES`. This is a REQUIRED schema addition — see Section 10.4 and Appendix C5 for full detail.
 
-**Format:** `[{"plan_activity_id": "uuid", "score": 0.87, "plan_description": "..."}]`
+**Candidates JSONB structure — canonical definition:**
+
+Each element in the array represents one candidate baseline activity. The array is ordered by `score` descending (index 0 = best match). Up to 3 candidates are stored.
+
+```json
+[
+  {
+    "plan_activity_id": "uuid-of-schedule-plan-row",
+    "activity_code": "L5-247-ERC",
+    "activity_description": "Erect Line 247-XX Piping Spool",
+    "score": 0.87
+  },
+  {
+    "plan_activity_id": "uuid-of-schedule-plan-row",
+    "activity_code": "L5-247-FAB",
+    "activity_description": "Fabricate Line 247-XX Piping Spool",
+    "score": 0.84
+  }
+]
+```
+
+**Field definitions:**
+
+| Field | Type | Required | Source | Notes |
+|---|---|---|---|---|
+| `plan_activity_id` | string (uuid) | Yes | `SCHEDULE_PLAN.id` | FK reference — used for navigation and confirm/select actions |
+| `activity_code` | string | Yes | `SCHEDULE_PLAN.activity_code` | Displayed in `<CandidateList>` and `<DisambiguationPanel>` |
+| `activity_description` | string | Yes | `SCHEDULE_PLAN.activity_description` | Displayed alongside the score for human comparison |
+| `score` | float (0.0–1.0+) | Yes | `matching_service.py` final_score | The raw contextual score as computed (Section 9.5); not clamped |
+
+**Notes for backend implementation:** All four fields must be populated when writing the `candidates` column. The backend must join `SCHEDULE_PLAN` at match time to retrieve `activity_code` and `activity_description` — do not store only the UUID.
+
+**Notes for frontend implementation:** `<CandidateList>` and `<DisambiguationPanel>` should read directly from the `candidates` field on the `SCHEDULE_MATCHES` row. No additional API call is needed to render candidates. The disambiguation panel is activated when `candidates` array length >= 2 AND `|candidates[0].score - candidates[1].score| < 0.05`.
 
 ### 9.8 Manual fallback
 
@@ -945,7 +987,17 @@ Handled entirely from the frontend — no FastAPI endpoint needed.
 
 ## 10. Database Implementation Plan
 
-All tables from DATABASE.md are locked. Two additions are documented in the Appendix.
+> **REQUIRED PRE-IMPLEMENTATION ACTION — DATABASE.md MUST BE RECONCILED**
+>
+> This plan introduces two schema additions that are not present in the current `docs/DATABASE.md`:
+> 1. `EXTRACTED_ACTIVITIES.extraction_confidence` — `float NOT NULL`
+> 2. `SCHEDULE_MATCHES.candidates` — `jsonb nullable`
+>
+> Both additions are architecturally required (see Appendix C4 and C5 for the full rationale). Before any implementation begins, `docs/DATABASE.md` must be updated to include these two columns. Implementation must not proceed against a schema that diverges from `DATABASE.md` — the SQL migration file (`backend/db/schema.sql`) must match the updated `DATABASE.md` exactly.
+>
+> **Action required: update `docs/DATABASE.md` as the first step of Phase 1, immediately after this plan is approved.**
+
+All remaining tables from DATABASE.md are locked. No other schema changes are introduced by this plan.
 
 ### 10.1 `SCHEDULE_PLAN`
 
@@ -995,7 +1047,7 @@ All tables from DATABASE.md are locked. Two additions are documented in the Appe
 | `start_time` | timestamptz nullable | |
 | `end_time` | timestamptz nullable | |
 | `location_reference` | text nullable | |
-| `extraction_confidence` | float NOT NULL | **ADDITION — see Appendix** |
+| `extraction_confidence` | float NOT NULL | **REQUIRED ADDITION** — deterministic confidence score calculated server-side by `extraction_service.py` (Section 8.3). Not from LLM output. |
 | `created_at` | timestamptz NOT NULL | default now() |
 
 **RLS:** SELECT: any authenticated user. INSERT: backend service role.
@@ -1012,7 +1064,7 @@ All tables from DATABASE.md are locked. Two additions are documented in the Appe
 | `confidence_score` | float NOT NULL | Final match score |
 | `status` | text | CHECK in ('auto_linked','pending_review','confirmed','rejected') |
 | `resolved_by` | uuid nullable FK -> auth.users | Set on confirm/reject |
-| `candidates` | jsonb nullable | **ADDITION** — top-3 candidates with scores for disambiguation UI |
+| `candidates` | jsonb nullable | **REQUIRED ADDITION** — ordered array of up to 3 candidate matches. Fields per element: `plan_activity_id` (uuid), `activity_code` (text), `activity_description` (text), `score` (float). Full spec in Section 9.7. |
 | `created_at` | timestamptz NOT NULL | default now() |
 
 **RLS:** SELECT: any authenticated user. INSERT: backend service role. UPDATE (status): `role = 'planner'` only.
@@ -1415,7 +1467,7 @@ Frontend `.env`: `VITE_API_BASE_URL=http://localhost:8000`
 
 ```
 GitHub
-  |-- frontend/ -> Vercel -> https://trueline.vercel.app
+  |-- frontend/ -> Vercel -> https://onground.vercel.app
   |-- backend/  -> Cloud-hosted FastAPI (provider TBD — UD2)
                       |
                   Supabase Cloud
@@ -1438,14 +1490,15 @@ GitHub
 ### 19.3 Deployment sequence (Phase 6)
 
 1. Verify local everything works end-to-end
-2. Create GitHub repository, push all code
-3. Create Vercel project, connect to GitHub, set root to `frontend/`, set env vars
-4. Deploy backend to cloud host (UD2 provider) with env vars
-5. Update `VITE_API_BASE_URL` in Vercel to cloud backend URL
-6. Update CORS in backend to allow Vercel URL
-7. End-to-end test through public URLs
-8. Seed production Supabase with demo data
-9. Verify local fallback still works
+2. Decide cloud hosting provider (UD2) — evaluate the options assessed in Phase 1 and select one. Document as the next available decision number in DECISION_LOG.md before proceeding.
+3. Create GitHub repository, push all code
+4. Create Vercel project, connect to GitHub, set root to `frontend/`, set env vars
+5. Deploy backend to the selected cloud host (UD2, now decided) with production env vars
+6. Update `VITE_API_BASE_URL` in Vercel to cloud backend URL
+7. Update CORS in backend to allow Vercel URL
+8. End-to-end test through public URLs
+9. Seed production Supabase with demo data
+10. Verify local fallback still works
 
 ---
 
@@ -1475,7 +1528,7 @@ GitHub
 
 ### Phase 1 — Foundation / Scaffolding
 
-**Objective:** Working skeleton. Both ends start. Supabase connected. LLM provider interface exists. No AI pipeline yet.
+**Objective:** Working skeleton. Both ends start. Supabase connected. LLM provider abstraction/interface exists. No AI pipeline yet.
 
 **Prerequisites:** None. All planning docs complete.
 
@@ -1491,23 +1544,22 @@ GitHub
 8. `backend/main.py` — FastAPI app, CORS, health endpoint, router stubs.
 9. `backend/requirements.txt` — all Python deps.
 10. `backend/db/supabase_client.py` — Supabase client instance.
-11. `backend/llm/provider.py` — abstract `LLMProvider` class.
-12. `backend/llm/openrouter.py` — `OpenRouterProvider` stub (structure only, no API call yet).
-13. `backend/models/schemas.py` — all Pydantic models.
-14. Empty route files with stub handlers.
-15. `backend/.env.example`.
-16. Convert Vite scaffold to React: add React, React Router, Supabase JS, chosen CSS system.
-17. `frontend/src/lib/supabaseClient.ts` — Supabase JS client.
-18. `frontend/src/lib/apiClient.ts` — fetch wrapper for FastAPI.
-19. `frontend/src/lib/types.ts` — TypeScript types matching DB schema.
-20. Basic React Router setup with all routes defined (pages as stubs).
-21. `<AppShell>`, `<Sidebar>`, `<TopBar>` layout components.
-22. `useAuth` hook — Supabase auth state, role detection.
-23. LoginPage with `signInWithPassword` + demo switcher.
-24. Wire frontend `.env` — verify frontend can query Supabase directly.
-25. Wire backend `.env` — verify backend can reach Supabase with service key.
-26. Root-level `.gitignore`, `.env.example`, `README.md`.
-27. **Decide CSS approach (UD3) — document as D16 in DECISION_LOG.md.**
+11. `backend/llm/provider.py` — abstract `LLMProvider` class (interface only).
+12. `backend/models/schemas.py` — all Pydantic models.
+13. Empty route files with stub handlers.
+14. `backend/.env.example`.
+15. Frontend React foundation: convert Vite scaffold to React: add React, React Router, Supabase JS.
+16. `frontend/src/lib/supabaseClient.ts` — Supabase JS client.
+17. `frontend/src/lib/apiClient.ts` — fetch wrapper for FastAPI.
+18. `frontend/src/lib/types.ts` — TypeScript types matching DB schema.
+19. Basic React Router setup with all routes defined (pages as stubs).
+20. `<AppShell>`, `<Sidebar>`, `<TopBar>` layout components.
+21. `useAuth` hook — Supabase auth state, role detection.
+22. LoginPage with `signInWithPassword` + demo switcher (basic auth verification).
+23. Wire frontend `.env` — verify frontend can query Supabase directly.
+24. Wire backend `.env` — verify backend can reach Supabase with service key.
+25. Root-level `.gitignore`, `.env.example`, `README.md`.
+26. Connectivity checks: verify `GET /health` and Supabase connectivity from both frontend and backend.
 
 **Definition of done:**
 - `GET /health` → `{"status": "ok"}`
@@ -1525,15 +1577,15 @@ GitHub
 
 **Exact tasks:**
 
-1. `routes/upload.py`: `POST /upload` — file validation, Storage upload, EXTRACTIONS insert.
-2. `services/extraction_service.py`: full pipeline.
-3. `llm/openrouter.py`: full implementation — POST to OpenRouter, structured prompt, response parsing, timeout, retry.
+1. `backend/llm/openrouter.py`: `OpenRouterProvider` full implementation — resolve UD1 (select exact OpenRouter free-tier model, document in `DECISION_LOG.md` under next available decision number), structured prompt, response parsing, timeout, retry.
+2. `services/extraction_service.py`: full extraction pipeline and file parsing (PDF/TXT/CSV/XLSX).
+3. `routes/upload.py`: `POST /upload` — file validation, Storage upload, EXTRACTIONS insert.
 4. `routes/extract.py`: `POST /extract/{extraction_id}`.
-5. `services/matching_service.py`: full pipeline — load sentence-transformers at startup, discipline filter, date filter, embeddings, cosine similarity, contextual scoring, banding, DB writes.
+5. `services/matching_service.py`: full matching pipeline — load sentence-transformers at startup, discipline filter, date filter, embeddings, cosine similarity, contextual scoring, banding, DB writes.
 6. `routes/match.py`: `POST /match/{extracted_activity_id}`.
 7. `services/audit_service.py`: `log_action()`.
 8. `routes/review.py`: `POST /match/{id}/confirm` and `/reject` — role check, DB update, audit.
-9. Auth middleware: `get_current_user` dependency.
+9. Auth middleware: `get_current_user` dependency (authorization enforcement).
 10. Write all backend unit tests.
 11. Manual end-to-end test: upload .txt → extract → activities in DB → match → SCHEDULE_MATCHES row.
 12. Verify: confirm as planner → confirmed. Confirm as supervisor → 403.
@@ -1551,11 +1603,11 @@ GitHub
 
 **Objective:** All screens built. Upload triggers API. Reconciliation table shows real data.
 
-**Prerequisites:** Phase 2 complete. **CSS approach decided (UD3) before this phase starts.**
+**Prerequisites:** Phase 2 complete. **UD3 (CSS/styling approach) resolved before this phase starts.**
 
 **Exact tasks:**
 
-1. Design tokens / CSS setup.
+1. Resolve UD3 (CSS/styling approach) and configure design tokens / base styles.
 2. All UI primitives: `<ConfidenceBadge>`, `<StatusBadge>`, `<KPICard>`, `<DataTable>`, `<EmptyState>`, `<ErrorState>`, `<LoadingSkeleton>`, `<Toast>`.
 3. `DashboardPage` — ProgressSummary, DisciplineBreakdown, RecentUploads.
 4. `UploadPage` — UploadDropzone, UploadStatusCard. Wire to FastAPI endpoints.
@@ -1805,39 +1857,45 @@ Pre-seed the database with already-extracted and already-matched activities from
 
 ## 25. Unresolved Decisions
 
+**Decision numbering convention:** D1–D13 are locked decisions already recorded in `DECISION_LOG.md`. The three items below are currently unresolved decisions: UD1 (Exact OpenRouter free-tier model), UD2 (Backend cloud hosting provider), and UD3 (CSS/styling approach). Decision numbers are NOT assigned merely to fill gaps or pre-reserved. For now, they are represented solely as unresolved decisions (UD1, UD2, UD3). When each decision is actually made during implementation, it will receive the next available decision number and be added to `DECISION_LOG.md`.
+
+---
+
 ### UD1 — Exact free OpenRouter model
 
 **Why it matters:** Model determines extraction quality — context window, JSON instruction-following, availability, response time.
 
 **When it must be decided:** Start of Phase 2 (before `openrouter.py` implements the actual model string).
 
-**What blocks it:** Need to check current free model availability on OpenRouter at implementation time. Models change.
+**What blocks it:** Need to check current free model availability on OpenRouter at implementation time. Free models change frequently.
 
-**How to decide:** At Phase 2 start, test 2-3 available free models on OpenRouter with a sample construction report. Pick the best-performing one. Document as D14 in DECISION_LOG.md.
+**How to decide:** At Phase 2 start, test 2–3 available free models on OpenRouter with a sample construction report. Pick the best-performing one (reliable JSON output, < 30s response, sufficient context window for ~8000 chars). Write the decision to `DECISION_LOG.md` under the next available decision number before any code references the model name.
 
 ---
 
 ### UD2 — Cloud FastAPI hosting provider
 
-**Why it matters:** Backend must be publicly accessible for hackathon demo.
+**Why it matters:** Backend must be publicly accessible for the hackathon demo (D12 is locked). The hosting provider must support Python, FastAPI, and be able to load the sentence-transformers model (~80MB).
 
-**When it must be decided:** Start of Phase 6 (before deployment). Should be evaluated in Phase 1 to avoid surprises.
+**When it must be decided:** Start of Phase 6 (deployment phase). This decision must remain open until Phase 6 unless a provider is explicitly selected and documented earlier.
 
-**What blocks it:** Free tier availability changes. Must verify: free tier exists, Python/FastAPI supported, sentence-transformers model can be loaded.
+**What to evaluate before deciding (without committing):** Verify that viable providers exist — check Render, Railway, Fly.io for: free tier availability, Python runtime support, ability to load ~80MB model, deployment complexity. Do not commit prematurely.
 
-**Candidate options (evaluate in Phase 1):** Render, Railway, Fly.io. Document choice as D15 in DECISION_LOG.md.
+**How to decide:** At the start of Phase 6, select the best-fit provider. Write the decision to `DECISION_LOG.md` under the next available decision number before deployment begins.
 
 ---
 
-### UD3 — CSS approach / design system implementation
+### UD3 — CSS / styling approach
 
-**Why it matters:** The entire frontend design system depends on this. Cannot be changed mid-build.
+**Why it matters:** The entire frontend design system (Section 5) depends on this. All components in Phase 3 are built against it. Cannot be changed mid-build without significant rework.
 
-**When it must be decided:** Before Phase 3 begins. Ideally in Phase 1.
+**When it must be decided:** Before Phase 3 begins.
 
-**Options:** Tailwind CSS v3 / Vanilla CSS + CSS custom properties / CSS Modules.
+**Options:** Tailwind CSS v3 / Vanilla CSS with CSS custom properties / CSS Modules.
 
-**Planning recommendation:** Tailwind CSS v3 — fastest for a 36-hour build for a data-dense dashboard. Document choice as D16 in DECISION_LOG.md.
+**Planning recommendation:** Tailwind CSS v3 — fastest for a 36-hour build for a data-dense professional dashboard.
+
+**How to decide:** Developer makes the call based on team familiarity and time constraints. Write the decision to `DECISION_LOG.md` under the next available decision number before starting Phase 3 work (i.e., before writing `index.css` or any component styling).
 
 ---
 
@@ -1873,7 +1931,7 @@ Pre-seed the database with already-extracted and already-matched activities from
 | `frontend/package.json` | 1 | Add React, React Router, Supabase JS, (Tailwind if chosen) | None |
 | `frontend/vite.config.ts` | 1 | Vite config with React plugin | None |
 | `frontend/.env.example` | 1 | Frontend env template | None |
-| `frontend/index.html` | 1 | Updated title "TrueLine — IPIS" | None |
+| `frontend/index.html` | 1 | Updated title "OnGround — IPIS" | None |
 | `frontend/src/main.tsx` | 1 | React app entry point | App.tsx |
 | `frontend/src/App.tsx` | 1 | React Router routes, auth guard, AppShell | All pages |
 | `frontend/src/index.css` | 3 | Design system (tokens, base styles) | UD3 resolved |
@@ -1936,60 +1994,59 @@ Pre-seed the database with already-extracted and already-matched activities from
 5.  Enable Realtime on 5 tables in Supabase dashboard
 6.  Create Storage bucket 'reports' (private)
 7.  Create demo user accounts (planner + supervisor) + profile rows
-8.  Decide and document CSS approach as D16 in DECISION_LOG.md (UD3 resolved)
-9.  Backend skeleton: main.py, requirements.txt, supabase_client.py, LLMProvider interface, all Pydantic schemas, empty route stubs
-10. Backend .env.example + local .env (no secrets committed)
-11. Frontend: convert Vite scaffold to React + React Router + chosen CSS system + Supabase JS
-12. Frontend: lib/types.ts, lib/apiClient.ts, all hooks (stubs), AppShell + Sidebar + TopBar
-13. LoginPage + useAuth — verify Supabase auth works (Phase 1 complete)
-14. Verify GET /health and Supabase connectivity from both frontend and backend
-15. Decide and document exact OpenRouter model as D14 in DECISION_LOG.md (UD1 resolved)
-16. OpenRouterProvider full implementation (LLM provider)
-17. extraction_service.py — full pipeline
-18. POST /upload endpoint
-19. POST /extract/{id} endpoint
-20. matching_service.py — sentence-transformers loaded at startup, full pipeline
-21. POST /match/{id} endpoint
-22. audit_service.py — log_action()
-23. POST /match/{id}/confirm and /reject endpoints + role enforcement + auth middleware
-24. Write and run all backend unit tests (Phase 2 complete)
-25. Evaluate candidate backend hosting providers — document choice as D15 in DECISION_LOG.md (UD2 resolved — needed for Phase 6, evaluated early)
-26. All UI primitive components: ConfidenceBadge, StatusBadge, KPICard, DataTable, EmptyState, ErrorState, LoadingSkeleton, Toast
-27. DashboardPage + all dashboard components + useExtractions + useMatches hooks
-28. UploadPage + UploadDropzone + UploadStatusCard (wire to FastAPI endpoints)
-29. ReconciliationPage + ReconciliationTable + MatchRow + CandidateList + DisambiguationPanel
-30. ReviewPage + ReviewPanel + ActivityDetailCard + ConfirmRejectBar + AuditTimeline
-31. UnmatchedPage + manual link panel
-32. AuditPage + AuditTimeline full
-33. SchedulePage + baseline upload (planner only)
-34. All Supabase-direct read hooks finalized (Phase 3 complete)
-35. Add Realtime subscriptions to all 5 data hooks
-36. Stale data re-fetch on Realtime reconnect
-37. RLS verification tests — supervisor cannot confirm/reject via direct API or Supabase
-38. Demo role switcher end-to-end test
-39. Full integration test: upload → live status update → ReconciliationPage live update → confirm → audit live (Phase 4 complete)
-40. Create data/baseline_schedule.csv (20-30 activities, 6 disciplines)
-41. Create data/sample_report_piping.txt, sample_report_electrical.txt, sample_report_mixed.csv
-42. Create data/README.md
-43. Run seed script — populate SCHEDULE_PLAN in Supabase
-44. Run extraction evaluation — measure recall, fix prompt if needed, target >= 85%
-45. Run matching evaluation — measure top-1 accuracy, target >= 80%
-46. Calibrate confidence thresholds — zero false-positive auto-links in demo set
-47. Re-run evaluation after calibration
-48. Manual end-to-end demo flow walkthrough (Phase 5 complete)
-49. Visual QA pass + accessibility spot-check
-50. Performance check: ReconciliationTable with 50+ rows < 2 seconds
-51. Deploy backend to cloud host (D15 provider) with production env vars
-52. Deploy frontend to Vercel with production env vars
-53. Update CORS in backend to include Vercel URL
-54. End-to-end test through public URLs
-55. Seed production Supabase with demo baseline schedule + demo user accounts
-56. Verify local development still works after all production env changes
-57. Write demo script (timed, specific sequence)
-58. Record backup demo video (full clean run)
-59. Run QUALITY_CHECKLIST.md — all items checked
-60. Update PHASE.md to reflect Phase 6 complete
-61. Final git commit + tag (TrueLine ready for demo)
+8.  Backend skeleton: main.py, requirements.txt, supabase_client.py, LLMProvider abstraction/interface, all Pydantic schemas, empty route stubs
+9.  Backend .env.example + local .env (no secrets committed)
+10. Frontend React foundation: convert Vite scaffold to React + React Router + Supabase JS
+11. Frontend structure: lib/types.ts, lib/apiClient.ts, all hooks (stubs), AppShell + Sidebar + TopBar
+12. LoginPage + useAuth — verify basic Supabase auth works
+13. Connectivity checks: Verify GET /health and Supabase connectivity from both frontend and backend (Phase 1 complete)
+14. OpenRouter provider implementation: resolve UD1 (select exact OpenRouter free-tier model, document in DECISION_LOG.md under next available decision number) and implement backend/llm/openrouter.py (concrete LLMProvider)
+15. services/extraction_service.py — full extraction pipeline and file parsing (PDF/TXT/CSV/XLSX)
+16. routes/upload.py — POST /upload endpoint (file validation, Storage upload, EXTRACTIONS insert)
+17. routes/extract.py — POST /extract/{id} endpoint (wires extraction service)
+18. services/matching_service.py — sentence-transformers loaded at startup, full matching pipeline
+19. routes/match.py — POST /match/{id} endpoint
+20. services/audit_service.py — log_action()
+21. routes/review.py — POST /match/{id}/confirm and /reject endpoints + authorization enforcement (planner vs supervisor) + auth middleware
+22. Write and run all backend unit tests (Phase 2 complete)
+23. Resolve UD3 (CSS/styling approach: Tailwind CSS v3 / Vanilla CSS / CSS Modules, document in DECISION_LOG.md under next available decision number) and configure design tokens / base styles
+24. All UI primitive components: ConfidenceBadge, StatusBadge, KPICard, DataTable, EmptyState, ErrorState, LoadingSkeleton, Toast
+25. DashboardPage + all dashboard components + useExtractions + useMatches hooks
+26. UploadPage + UploadDropzone + UploadStatusCard (wire to FastAPI endpoints)
+27. ReconciliationPage + ReconciliationTable + MatchRow + CandidateList + DisambiguationPanel
+28. ReviewPage + ReviewPanel + ActivityDetailCard + ConfirmRejectBar + AuditTimeline
+29. UnmatchedPage + manual link panel
+30. AuditPage + AuditTimeline full
+31. SchedulePage + baseline upload (planner only)
+32. All Supabase-direct read hooks finalized (Phase 3 complete)
+33. Add Realtime subscriptions to all 5 data hooks
+34. Stale data re-fetch on Realtime reconnect
+35. RLS verification tests — supervisor cannot confirm/reject via direct API or Supabase
+36. Demo role switcher end-to-end test
+37. Full integration test: upload → live status update → ReconciliationPage live update → confirm → audit live (Phase 4 complete)
+38. Create data/baseline_schedule.csv (20-30 activities, 6 disciplines)
+39. Create data/sample_report_piping.txt, sample_report_electrical.txt, sample_report_mixed.csv
+40. Create data/README.md
+41. Run seed script — populate SCHEDULE_PLAN in Supabase
+42. Run extraction evaluation — measure recall, fix prompt if needed, target >= 85%
+43. Run matching evaluation — measure top-1 accuracy, target >= 80%
+44. Calibrate confidence thresholds — zero false-positive auto-links in demo set
+45. Re-run evaluation after calibration
+46. Manual end-to-end demo flow walkthrough (Phase 5 complete)
+47. Visual QA pass + accessibility spot-check
+48. Performance check: ReconciliationTable with 50+ rows < 2 seconds
+49. Decide cloud hosting provider (UD2) — evaluate options, select provider, and document as the next available decision number in DECISION_LOG.md
+50. Deploy FastAPI backend to the selected cloud host with production env vars set
+51. Deploy frontend to Vercel with production env vars
+52. Update CORS in backend to include Vercel URL
+53. End-to-end test through public URLs
+54. Seed production Supabase with demo baseline schedule + demo user accounts
+55. Verify local development still works after all production env changes
+56. Write demo script (timed, specific sequence)
+57. Record backup demo video (full clean run)
+58. Run QUALITY_CHECKLIST.md — all items checked
+59. Update PHASE.md to reflect Phase 6 complete
+60. Final git commit + tag (OnGround ready for demo)
 ```
 
 ---
@@ -2000,15 +2057,15 @@ The following inconsistencies were found during documentation review. All have b
 
 | # | Contradiction | Documents in conflict | Resolution in this plan |
 |---|---|---|---|
-| C1 | `PRODUCT_FEATURES.md` Feature 5 MVP says "React + Tailwind CSS". `TECH_STACK.md` and `FINAL_MASTER_PLAN.md` say "React" only — no Tailwind. | PRODUCT_FEATURES.md vs TECH_STACK.md / FINAL_MASTER_PLAN.md | Treated as Unresolved Decision 3 (UD3). Developer must decide before Phase 3. Planning recommendation: Tailwind CSS v3. Document as D16. |
+| C1 | `PRODUCT_FEATURES.md` Feature 5 MVP says "React + Tailwind CSS". `TECH_STACK.md` and `FINAL_MASTER_PLAN.md` say "React" only — no Tailwind. | PRODUCT_FEATURES.md vs TECH_STACK.md / FINAL_MASTER_PLAN.md | Treated as Unresolved Decision 3 (UD3). Developer must decide before Phase 3 begins. Planning recommendation: Tailwind CSS v3. When decided, document as the next available decision number in DECISION_LOG.md. |
 | C2 | `PRODUCT_FEATURES.md` Feature 5 references Recharts for Gantt chart as an MVP component. No Gantt chart task appears in `TASKS.md` or `PHASE.md`. | PRODUCT_FEATURES.md vs TASKS.md / PHASE.md | Gantt chart deferred. Dashboard uses tabular/card data. `TASKS.md` and `PHASE.md` take precedence as execution documents. |
 | C3 | `PRODUCT_FEATURES.md` Feature 1 lists "deduplication (same file uploaded twice rejected)" as an acceptance criterion. No deduplication logic described in `DATABASE.md`, `ARCHITECTURE.md`, or `API.md`. | PRODUCT_FEATURES.md vs engineering docs | Not planned for MVP. File hash deduplication is a nice-to-have not in any engineering doc. The upload endpoint validates that the extraction_id is fresh, but file-level deduplication is not in Phase 1-6 scope. |
-| C4 | `DATABASE.md` `EXTRACTED_ACTIVITIES` table schema does not include an `extraction_confidence` column. The AI pipeline (FINAL_MASTER_PLAN.md, PRODUCT_FEATURES.md) calculates and requires storing a deterministic confidence score per activity. | DATABASE.md (schema) vs FINAL_MASTER_PLAN.md (pipeline) | `extraction_confidence float NOT NULL` column added to `EXTRACTED_ACTIVITIES`. Must be included in schema.sql. This is a schema addition required by the documented architecture. |
-| C5 | `DATABASE.md` `SCHEDULE_MATCHES` stores a single `plan_activity_id` (one matched plan node). Disambiguation UI requires storing top-N candidates with their scores. | DATABASE.md (schema) vs this plan's disambiguation requirement (from QUALITY_CHECKLIST.md) | `candidates jsonb` column added to `SCHEDULE_MATCHES` for top-3 candidates. Must be included in schema.sql. This is a schema addition required by the documented quality requirement. |
+| C4 | `DATABASE.md` `EXTRACTED_ACTIVITIES` table schema does not include an `extraction_confidence` column. The AI pipeline (`FINAL_MASTER_PLAN.md`, `PRODUCT_FEATURES.md`) calculates and requires storing a deterministic confidence score per activity. | DATABASE.md (schema) vs FINAL_MASTER_PLAN.md (pipeline) | **REQUIRED SCHEMA ADDITION.** `extraction_confidence float NOT NULL` column must be added to `EXTRACTED_ACTIVITIES`. `docs/DATABASE.md` must be updated to include this column before implementation begins. `backend/db/schema.sql` must match the updated DATABASE.md. |
+| C5 | `DATABASE.md` `SCHEDULE_MATCHES` stores a single `plan_activity_id` (one matched plan node). The disambiguation and review UI requires storing top-N candidates with their individual scores, descriptions, and activity codes. | DATABASE.md (schema) vs QUALITY_CHECKLIST.md / this plan's disambiguation requirement | **REQUIRED SCHEMA ADDITION.** `candidates jsonb nullable` column must be added to `SCHEDULE_MATCHES`. Full field spec: array of up to 3 objects each containing `plan_activity_id` (uuid), `activity_code` (text), `activity_description` (text), `score` (float). `docs/DATABASE.md` must be updated to include this column before implementation begins. `backend/db/schema.sql` must match the updated DATABASE.md. |
 | C6 | `PRODUCT_FEATURES.md` Feature 2 shows an output JSON with a `confidence` field in the LLM output. `FINAL_MASTER_PLAN.md` and `PRODUCT_FEATURES.md` also state the confidence is calculated deterministically server-side. The two are in direct contradiction — the LLM should not generate the confidence field. | PRODUCT_FEATURES.md (output example) vs FINAL_MASTER_PLAN.md | `FINAL_MASTER_PLAN.md` is the authority. LLM does NOT generate the confidence field. Extraction prompt explicitly instructs "Do not add a confidence field." Any confidence field in LLM response is stripped during Pydantic validation. Deterministic calculation is the only source. |
 
 ---
 
-*End of TrueLine Implementation Plan — Version 1.0*
+*End of OnGround Implementation Plan — Version 1.0*
 *Awaiting approval to begin Phase 1 execution.*
 *No code was created, modified, installed, or deployed in producing this document.*

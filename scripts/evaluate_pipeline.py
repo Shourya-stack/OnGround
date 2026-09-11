@@ -1,5 +1,5 @@
 """
-TrueLine IPIS — Evaluation & Benchmark Harness
+OnGround IPIS — Evaluation & Benchmark Harness
 Evaluates:
 1. Extraction pipeline recall across multi-format construction reports
 2. Semantic matching Top-1 accuracy against ground truth baseline schedule activities
@@ -33,7 +33,7 @@ def load_baseline_schedule():
 
 def evaluate_pipeline():
     print("=" * 70)
-    print("      TrueLine IPIS — SIH 2026 Evaluation & Accuracy Benchmark")
+    print("      OnGround IPIS — SIH 2026 Evaluation & Accuracy Benchmark")
     print("=" * 70)
 
     baseline_plan = load_baseline_schedule()

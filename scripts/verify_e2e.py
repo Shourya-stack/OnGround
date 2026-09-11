@@ -1,5 +1,5 @@
 """
-Complete End-to-End Pipeline Verification for TrueLine IPIS.
+Complete End-to-End Pipeline Verification for OnGround IPIS.
 Tests live OpenRouter LLM extraction, vector matching, review logic, and audit logging.
 """
 
@@ -21,7 +21,7 @@ from uuid import uuid4
 
 def run_e2e_verification():
     print("======================================================================")
-    print("TRUELINE IPIS — LIVE END-TO-END PIPELINE VERIFICATION")
+    print("ONGROUND IPIS — LIVE END-TO-END PIPELINE VERIFICATION")
     print("======================================================================")
 
     # 1. Ingest Sample Report

@@ -1,5 +1,5 @@
 /**
- * TrueLine — useAuth Hook
+ * OnGround — useAuth Hook
  * Manages Supabase authentication, session state, user role, and demo role switcher.
  */
 

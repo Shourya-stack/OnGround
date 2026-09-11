@@ -1,4 +1,4 @@
-# TrueLine — Auth
+# OnGround — Auth
 
 ## Approach: Supabase Auth, kept minimal
 

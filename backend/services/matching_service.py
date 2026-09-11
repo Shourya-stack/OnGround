@@ -1,5 +1,5 @@
 """
-Matching Engine Service for TrueLine IPIS.
+Matching Engine Service for OnGround IPIS.
 Uses sentence-transformers (all-MiniLM-L6-v2) for semantic embeddings,
 combines with discipline and date proximity heuristics, determines confidence bands,
 and performs candidate disambiguation.
@@ -14,7 +14,7 @@ from backend.db.supabase_client import get_supabase_client
 from backend.models.schemas import CandidateMatch, MatchResult
 from backend.services.audit_service import log_action
 
-logger = logging.getLogger("trueline.matching")
+logger = logging.getLogger("onground.matching")
 
 _embedding_model = None
 

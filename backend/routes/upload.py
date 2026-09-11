@@ -13,7 +13,7 @@ from backend.db.supabase_client import get_supabase_client
 from backend.services.audit_service import log_action
 
 router = APIRouter(prefix="", tags=["Upload"])
-logger = logging.getLogger("trueline.upload")
+logger = logging.getLogger("onground.upload")
 
 ALLOWED_EXTENSIONS = {".pdf", ".csv", ".xlsx", ".xls", ".txt", ".log"}
 MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024  # 10 MB
