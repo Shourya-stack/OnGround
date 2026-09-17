@@ -1,0 +1,393 @@
+import React, { useState } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
+import {
+  Check,
+  ArrowRight,
+  ArrowLeft,
+  FileSpreadsheet,
+} from 'lucide-react';
+import { apiService } from '../../api/apiService';
+import { useProject } from '../../context/ProjectContext';
+
+export const CreateProjectPage: React.FC = () => {
+  const navigate = useNavigate();
+  const { refreshProjects, setActiveProjectId } = useProject();
+  const [step, setStep] = useState(1);
+  const [loading, setLoading] = useState(false);
+
+  // Form State across steps
+  const [formData, setFormData] = useState({
+    name: 'Delhi-Meerut RRTS — Package 7',
+    code: 'RRTS-PKG07',
+    client: 'National Capital Region Transport Corp.',
+    location: 'Ghaziabad, Uttar Pradesh',
+    contract_type: 'EPC Design & Build',
+    budget: '₹620 Cr',
+    start_date: '2026-10-01',
+    end_date: '2028-03-31',
+    description: 'Elevated viaduct construction, trackwork, and traction power substation installation.',
+    schedule_file: 'sample_rrts_baseline_p6.csv',
+    lead_planner: 'Shourya (Lead Planner)',
+    site_supervisor: 'Amit Verma (Site Sup)',
+  });
+
+  const handleNext = () => {
+    if (step < 5) setStep(step + 1);
+  };
+
+  const handleBack = () => {
+    if (step > 1) setStep(step - 1);
+  };
+
+  const handleFinish = async () => {
+    setLoading(true);
+    try {
+      const created = await apiService.createProject({
+        name: formData.name,
+        code: formData.code,
+        client: formData.client,
+        location: formData.location,
+        contract_type: formData.contract_type,
+        budget: formData.budget,
+        status: 'active',
+        progress: 0,
+        start_date: formData.start_date,
+        end_date: formData.end_date,
+      });
+      await refreshProjects();
+      setActiveProjectId(created.id);
+      navigate(`/projects/${created.id}/overview`);
+    } catch (err) {
+      console.error('Failed to create project', err);
+      setLoading(false);
+    }
+  };
+
+  const stepsHeader = [
+    { num: 1, title: 'Project Info' },
+    { num: 2, title: 'Contract Details' },
+    { num: 3, title: 'Import Schedule' },
+    { num: 4, title: 'Assign Team' },
+    { num: 5, title: 'Review & Launch' },
+  ];
+
+  return (
+    <div style={{ maxWidth: '800px', margin: '0 auto' }}>
+      {/* Header */}
+      <div style={{ marginBottom: '32px' }}>
+        <Link to="/projects" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: 'var(--text-muted)', textDecoration: 'none', marginBottom: '12px' }}>
+          <ArrowLeft size={14} /> Back to Projects
+        </Link>
+        <h1 style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>
+          Create New Project Workspace
+        </h1>
+        <p style={{ color: 'var(--text-muted)', fontSize: '14px', marginTop: '4px' }}>
+          Set up master baseline parameters, schedule activities, and team governance.
+        </p>
+      </div>
+
+      {/* Step Progress Tracker */}
+      <div
+        className="glass-card"
+        style={{
+          padding: '16px 24px',
+          marginBottom: '28px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+        }}
+      >
+        {stepsHeader.map((s, idx) => {
+          const isDone = step > s.num;
+          const isCurrent = step === s.num;
+          return (
+            <React.Fragment key={s.num}>
+              {idx > 0 && (
+                <div
+                  style={{
+                    flex: 1,
+                    height: '2px',
+                    margin: '0 8px',
+                    backgroundColor: isDone ? 'var(--confidence-high)' : 'var(--border-subtle)',
+                  }}
+                />
+              )}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div
+                  style={{
+                    width: '28px',
+                    height: '28px',
+                    borderRadius: '50%',
+                    backgroundColor: isDone
+                      ? 'var(--confidence-high)'
+                      : isCurrent
+                      ? 'var(--accent-blue)'
+                      : 'var(--bg-surface)',
+                    color: isDone || isCurrent ? '#0f172a' : 'var(--text-muted)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '12px',
+                    fontWeight: 700,
+                  }}
+                >
+                  {isDone ? <Check size={14} /> : s.num}
+                </div>
+                <span
+                  style={{
+                    fontSize: '13px',
+                    fontWeight: isCurrent ? 700 : 500,
+                    color: isCurrent ? 'var(--text-primary)' : 'var(--text-muted)',
+                  }}
+                >
+                  {s.title}
+                </span>
+              </div>
+            </React.Fragment>
+          );
+        })}
+      </div>
+
+      {/* Step Content Card */}
+      <div className="glass-card" style={{ padding: '36px' }}>
+        {/* Step 1: Project Info */}
+        {step === 1 && (
+          <div>
+            <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '6px' }}>Step 1: Project Information</h2>
+            <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginBottom: '24px' }}>
+              Define primary project identifiers and client attributes.
+            </p>
+
+            <div className="form-group">
+              <label className="form-label">Project Name *</label>
+              <input
+                type="text"
+                required
+                className="form-input"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              />
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+              <div className="form-group">
+                <label className="form-label">Project / WBS Package Code *</label>
+                <input
+                  type="text"
+                  required
+                  className="form-input"
+                  value={formData.code}
+                  onChange={(e) => setFormData({ ...formData, code: e.target.value })}
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Client / Authority *</label>
+                <input
+                  type="text"
+                  required
+                  className="form-input"
+                  value={formData.client}
+                  onChange={(e) => setFormData({ ...formData, client: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Location / Corridor *</label>
+              <input
+                type="text"
+                required
+                className="form-input"
+                value={formData.location}
+                onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Step 2: Contract Details */}
+        {step === 2 && (
+          <div>
+            <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '6px' }}>Step 2: Contract Details</h2>
+            <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginBottom: '24px' }}>
+              Provide contractual timeline and budgetary benchmarks.
+            </p>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+              <div className="form-group">
+                <label className="form-label">Contract Type</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={formData.contract_type}
+                  onChange={(e) => setFormData({ ...formData, contract_type: e.target.value })}
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Contract Value / Budget</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={formData.budget}
+                  onChange={(e) => setFormData({ ...formData, budget: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+              <div className="form-group">
+                <label className="form-label">Planned Start Date</label>
+                <input
+                  type="date"
+                  className="form-input"
+                  value={formData.start_date}
+                  onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Contractual End Date</label>
+                <input
+                  type="date"
+                  className="form-input"
+                  value={formData.end_date}
+                  onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Scope Description</label>
+              <textarea
+                rows={3}
+                className="form-textarea"
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Step 3: Import Schedule */}
+        {step === 3 && (
+          <div>
+            <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '6px' }}>Step 3: Master Schedule Baseline</h2>
+            <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginBottom: '24px' }}>
+              Upload or link your master Primavera P6 WBS baseline activities.
+            </p>
+
+            <div
+              style={{
+                border: '2px dashed var(--border-medium)',
+                borderRadius: 'var(--radius-md)',
+                padding: '36px',
+                textAlign: 'center',
+                backgroundColor: 'var(--bg-surface)',
+                marginBottom: '20px',
+              }}
+            >
+              <FileSpreadsheet size={36} style={{ color: 'var(--accent-blue)', margin: '0 auto 12px' }} />
+              <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '4px' }}>
+                Primavera P6 Schedule Attached (Demo)
+              </div>
+              <p style={{ fontSize: '12px', color: 'var(--text-muted)', maxWidth: '400px', margin: '0 auto' }}>
+                Loaded 21 verified baseline WBS activities across Civil, Piping, Electrical, and Instrumentation disciplines.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Step 4: Assign Team */}
+        {step === 4 && (
+          <div>
+            <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '6px' }}>Step 4: Governance & Team Assignment</h2>
+            <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginBottom: '24px' }}>
+              Assign certified planners for reconciliation approval and site supervisors for report uploads.
+            </p>
+
+            <div className="form-group">
+              <label className="form-label">Lead Project Planner (Approval Authority) *</label>
+              <input
+                type="text"
+                className="form-input"
+                value={formData.lead_planner}
+                onChange={(e) => setFormData({ ...formData, lead_planner: e.target.value })}
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Site Supervisor (Ingestion Authority) *</label>
+              <input
+                type="text"
+                className="form-input"
+                value={formData.site_supervisor}
+                onChange={(e) => setFormData({ ...formData, site_supervisor: e.target.value })}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Step 5: Review & Complete */}
+        {step === 5 && (
+          <div>
+            <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '6px' }}>Step 5: Review & Launch Workspace</h2>
+            <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginBottom: '24px' }}>
+              Confirm your project configuration to initialize the workspace.
+            </p>
+
+            <div style={{ backgroundColor: 'var(--bg-surface)', borderRadius: 'var(--radius-md)', padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px', marginBottom: '24px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '10px' }}>
+                <span style={{ color: 'var(--text-muted)', fontSize: '13px' }}>Project Name:</span>
+                <span style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '13px' }}>{formData.name}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '10px' }}>
+                <span style={{ color: 'var(--text-muted)', fontSize: '13px' }}>WBS Code:</span>
+                <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--accent-blue)', fontSize: '13px' }}>{formData.code}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '10px' }}>
+                <span style={{ color: 'var(--text-muted)', fontSize: '13px' }}>Client:</span>
+                <span style={{ color: 'var(--text-primary)', fontSize: '13px' }}>{formData.client}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '10px' }}>
+                <span style={{ color: 'var(--text-muted)', fontSize: '13px' }}>Budget:</span>
+                <span style={{ color: 'var(--confidence-high)', fontWeight: 600, fontSize: '13px' }}>{formData.budget}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--text-muted)', fontSize: '13px' }}>Baseline Schedule:</span>
+                <span style={{ color: 'var(--text-primary)', fontSize: '13px' }}>21 P6 activities ready</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Buttons */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '32px', paddingTop: '20px', borderTop: '1px solid var(--border-subtle)' }}>
+          {step > 1 ? (
+            <button type="button" className="btn btn-secondary" onClick={handleBack}>
+              <ArrowLeft size={16} /> Back
+            </button>
+          ) : (
+            <div />
+          )}
+
+          {step < 5 ? (
+            <button type="button" className="btn btn-primary" onClick={handleNext}>
+              Next Step <ArrowRight size={16} />
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="btn btn-primary"
+              disabled={loading}
+              onClick={handleFinish}
+            >
+              {loading ? 'Initializing Workspace...' : 'Launch Project Workspace'} <ArrowRight size={16} />
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};

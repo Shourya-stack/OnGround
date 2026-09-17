@@ -135,3 +135,88 @@ export interface MatchResponse {
   confidence_score?: number;
   candidates?: CandidateMatch[];
 }
+
+// =============================================================================
+// Project, Report, Team & Analytics Models (Phase 1)
+// =============================================================================
+
+export type ProjectStatus = 'active' | 'completed' | 'archived';
+
+export interface Project {
+  id: string;
+  name: string;
+  code: string;
+  client: string;
+  location: string;
+  contract_type: string;
+  budget: string;
+  status: ProjectStatus;
+  progress: number; // 0 - 100
+  start_date: string;
+  end_date: string;
+  created_at: string;
+  reports_count: number;
+  activities_count: number;
+  matched_count: number;
+  review_count: number;
+  unmatched_count: number;
+  team_size: number;
+}
+
+export type ReportStatus = 'uploaded' | 'processing' | 'completed' | 'failed';
+
+export interface ReportItem {
+  id: string;
+  project_id: string;
+  file_name: string;
+  file_size: string;
+  file_type: 'pdf' | 'docx' | 'xlsx' | 'csv' | 'txt';
+  status: ReportStatus;
+  uploaded_by: string;
+  uploaded_at: string;
+  activities_count: number;
+  matched_count: number;
+  review_count: number;
+  unmatched_count: number;
+  error_message?: string;
+}
+
+export type ExtendedRole = 'planner' | 'supervisor' | 'manager' | 'engineer';
+
+export interface TeamMember {
+  id: string;
+  project_id: string;
+  name: string;
+  email: string;
+  role: ExtendedRole;
+  status: 'active' | 'invited';
+  last_active: string;
+  avatar?: string;
+}
+
+export interface ProjectAnalytics {
+  project_id: string;
+  reports_processed: number;
+  activities_extracted: number;
+  matched_count: number;
+  review_count: number;
+  unmatched_count: number;
+  match_rate: number; // percentage
+  review_rate: number; // percentage
+  confidence_distribution: {
+    high: number;    // >= 85%
+    medium: number;  // 70-84%
+    low: number;     // < 70%
+  };
+  ingestion_trends: {
+    date: string;
+    reports: number;
+    activities: number;
+  }[];
+  discipline_breakdown: {
+    discipline: DisciplineType;
+    count: number;
+    percentage: number;
+  }[];
+}
+

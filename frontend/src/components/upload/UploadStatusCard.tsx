@@ -1,6 +1,6 @@
-import { CheckCircle2, Clock, Loader2, Sparkles, ArrowRight } from 'lucide-react';
-
-import { Link } from 'react-router-dom';
+import React from 'react';
+import { CheckCircle2, Clock, Loader2, Sparkles, ArrowRight, RefreshCw } from 'lucide-react';
+import { Link, useParams } from 'react-router-dom';
 
 export type PipelineStep = 'idle' | 'uploading' | 'extracting' | 'matching' | 'completed' | 'failed';
 
@@ -21,6 +21,8 @@ export const UploadStatusCard: React.FC<UploadStatusCardProps> = ({
   errorMessage,
   onReset,
 }) => {
+  const { id } = useParams<{ id: string }>();
+  const projectId = id || 'proj-01';
   const steps = [
     { key: 'uploading', label: '1. Ingest File to Storage' },
     { key: 'extracting', label: '2. AI Activity Extraction & Confidence' },
@@ -116,7 +118,7 @@ export const UploadStatusCard: React.FC<UploadStatusCardProps> = ({
               </button>
             )}
             <Link
-              to="/reconciliation"
+              to={`/projects/${projectId}/reconciliation`}
               className="btn btn-primary"
               style={{ fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.4rem', textDecoration: 'none' }}
             >
@@ -129,15 +131,28 @@ export const UploadStatusCard: React.FC<UploadStatusCardProps> = ({
       {errorMessage && (
         <div
           style={{
-            padding: '0.75rem 1rem',
+            padding: '0.85rem 1.25rem',
             borderRadius: 'var(--radius-md)',
             background: 'rgba(239, 68, 68, 0.1)',
             border: '1px solid var(--color-danger)',
             color: 'var(--color-danger)',
             fontSize: '0.85rem',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
           }}
         >
-          {errorMessage}
+          <span>{errorMessage}</span>
+          {onReset && (
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              onClick={onReset}
+              style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+            >
+              <RefreshCw size={14} /> Try Again
+            </button>
+          )}
         </div>
       )}
     </div>
