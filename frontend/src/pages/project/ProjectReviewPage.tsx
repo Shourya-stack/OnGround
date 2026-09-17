@@ -40,7 +40,13 @@ export const ProjectReviewPage: React.FC = () => {
       setAllSchedule(sched);
       if (matchId) {
         const found = data.findIndex((m) => m.id === matchId);
-        if (found !== -1) setSelectedIndex(found);
+        if (found !== -1) {
+          setSelectedIndex(found);
+        } else {
+          setSelectedIndex((prev) => Math.min(prev, Math.max(0, data.length - 1)));
+        }
+      } else {
+        setSelectedIndex((prev) => Math.min(prev, Math.max(0, data.length - 1)));
       }
     } catch (err) {
       console.error('Failed to load review queue', err);
@@ -53,7 +59,8 @@ export const ProjectReviewPage: React.FC = () => {
     loadReviewQueue();
   }, [projectId]);
 
-  const current = reviewMatches[selectedIndex];
+  const safeIndex = Math.min(selectedIndex, Math.max(0, reviewMatches.length - 1));
+  const current = reviewMatches[safeIndex];
 
   const handleConfirm = async () => {
     if (!current) return;
@@ -196,14 +203,14 @@ export const ProjectReviewPage: React.FC = () => {
               }}
             >
               <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)' }}>
-                Reviewing candidate <strong style={{ color: 'var(--text-primary)' }}>{selectedIndex + 1}</strong> of{' '}
+                Reviewing candidate <strong style={{ color: 'var(--text-primary)' }}>{safeIndex + 1}</strong> of{' '}
                 <strong style={{ color: 'var(--text-primary)' }}>{reviewMatches.length}</strong>
               </div>
               <div style={{ display: 'flex', gap: '8px' }}>
                 <button
                   type="button"
                   className="btn btn-secondary btn-sm"
-                  disabled={selectedIndex === 0}
+                  disabled={safeIndex === 0}
                   onClick={() => setSelectedIndex((prev) => Math.max(0, prev - 1))}
                 >
                   <ChevronLeft size={14} /> Previous
@@ -211,7 +218,7 @@ export const ProjectReviewPage: React.FC = () => {
                 <button
                   type="button"
                   className="btn btn-secondary btn-sm"
-                  disabled={selectedIndex >= reviewMatches.length - 1}
+                  disabled={safeIndex >= reviewMatches.length - 1}
                   onClick={() => setSelectedIndex((prev) => Math.min(reviewMatches.length - 1, prev + 1))}
                 >
                   Next <ChevronRight size={14} />

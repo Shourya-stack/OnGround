@@ -157,6 +157,25 @@ export const apiService = {
     return newReport;
   },
 
+  async updateReport(id: string, updates: Partial<ReportItem>): Promise<ReportItem | undefined> {
+    await delay(150);
+    const idx = reportsState.findIndex((r) => r.id === id);
+    if (idx !== -1) {
+      reportsState[idx] = { ...reportsState[idx], ...updates };
+      saveState('reports', reportsState);
+      return reportsState[idx];
+    }
+    return undefined;
+  },
+
+  async archiveReport(id: string): Promise<boolean> {
+    await delay(150);
+    const initialLen = reportsState.length;
+    reportsState = reportsState.filter((r) => r.id !== id);
+    saveState('reports', reportsState);
+    return reportsState.length < initialLen;
+  },
+
   // Activities
   async getActivities(_projectId?: string): Promise<ExtractedActivity[]> {
     await delay(150);

@@ -44,8 +44,8 @@ export const UploadStatusCard: React.FC<UploadStatusCardProps> = ({
   return (
     <div className="card" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--color-text)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <Sparkles size={18} color="var(--color-primary)" />
+        <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <Sparkles size={18} color="var(--accent-blue)" />
           <span>Processing Pipeline: {fileName}</span>
         </h3>
         {step === 'completed' && (
@@ -67,19 +67,19 @@ export const UploadStatusCard: React.FC<UploadStatusCardProps> = ({
                 justifyContent: 'space-between',
                 padding: '0.75rem 1rem',
                 borderRadius: 'var(--radius-md)',
-                background: status === 'active' ? 'rgba(59, 130, 246, 0.1)' : 'var(--color-surface-hover)',
-                border: `1px solid ${status === 'active' ? 'var(--color-primary)' : 'var(--color-border)'}`,
+                background: status === 'active' ? 'rgba(56, 189, 248, 0.1)' : 'var(--bg-surface-hover)',
+                border: `1px solid ${status === 'active' ? 'var(--accent-blue)' : 'var(--border-subtle)'}`,
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                {status === 'complete' && <CheckCircle2 size={18} color="var(--color-success)" />}
-                {status === 'active' && <Loader2 size={18} color="var(--color-primary)" className="animate-spin" />}
-                {status === 'pending' && <Clock size={18} color="var(--color-text-muted)" />}
+                {status === 'complete' && <CheckCircle2 size={18} color="var(--confidence-high)" />}
+                {status === 'active' && <Loader2 size={18} color="var(--accent-blue)" className="animate-spin" />}
+                {status === 'pending' && <Clock size={18} color="var(--text-muted)" />}
                 <span
                   style={{
                     fontSize: '0.875rem',
                     fontWeight: status === 'active' ? 600 : 400,
-                    color: status === 'pending' ? 'var(--color-text-muted)' : 'var(--color-text)',
+                    color: status === 'pending' ? 'var(--text-muted)' : 'var(--text-primary)',
                   }}
                 >
                   {s.label}
@@ -104,10 +104,10 @@ export const UploadStatusCard: React.FC<UploadStatusCardProps> = ({
           }}
         >
           <div>
-            <div style={{ fontWeight: 600, color: 'var(--color-success)', fontSize: '0.9rem' }}>
+            <div style={{ fontWeight: 600, color: 'var(--confidence-high)', fontSize: '0.9rem' }}>
               Successfully Processed!
             </div>
-            <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginTop: '2px' }}>
+            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '2px' }}>
               Extracted {extractedCount} activities • Created {matchedCount} schedule matches
             </div>
           </div>
@@ -134,8 +134,8 @@ export const UploadStatusCard: React.FC<UploadStatusCardProps> = ({
             padding: '0.85rem 1.25rem',
             borderRadius: 'var(--radius-md)',
             background: 'rgba(239, 68, 68, 0.1)',
-            border: '1px solid var(--color-danger)',
-            color: 'var(--color-danger)',
+            border: '1px solid var(--confidence-low)',
+            color: 'var(--confidence-low)',
             fontSize: '0.85rem',
             display: 'flex',
             justifyContent: 'space-between',

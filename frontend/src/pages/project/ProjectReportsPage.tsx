@@ -45,30 +45,41 @@ export const ProjectReportsPage: React.FC = () => {
     loadReports();
   }, [projectId]);
 
-  const handleRetry = (repId: string) => {
-    setReports((prev) =>
-      prev.map((r) =>
-        r.id === repId
-          ? { ...r, status: 'completed' as const, activities_count: 4, matched_count: 3, review_count: 1 }
-          : r
-      )
-    );
-    setToast({
-      id: Date.now().toString(),
-      type: 'success',
-      title: 'Reprocessing Completed',
-      message: `Report ${repId} re-extracted and matched with baseline schedule.`,
-    });
+  const handleRetry = async (repId: string) => {
+    try {
+      const updates = { status: 'completed' as const, activities_count: 4, matched_count: 3, review_count: 1 };
+      await apiService.updateReport(repId, updates);
+      setReports((prev) =>
+        prev.map((r) =>
+          r.id === repId
+            ? { ...r, ...updates }
+            : r
+        )
+      );
+      setToast({
+        id: Date.now().toString(),
+        type: 'success',
+        title: 'Reprocessing Completed',
+        message: `Report ${repId} re-extracted and matched with baseline schedule.`,
+      });
+    } catch (err: any) {
+      setToast({ id: Date.now().toString(), type: 'error', title: 'Error', message: err?.message || 'Failed to retry report processing.' });
+    }
   };
 
-  const handleArchive = (repId: string) => {
-    setReports((prev) => prev.filter((r) => r.id !== repId));
-    setToast({
-      id: Date.now().toString(),
-      type: 'success',
-      title: 'Report Archived',
-      message: `Report ${repId} successfully archived.`,
-    });
+  const handleArchive = async (repId: string) => {
+    try {
+      await apiService.archiveReport(repId);
+      setReports((prev) => prev.filter((r) => r.id !== repId));
+      setToast({
+        id: Date.now().toString(),
+        type: 'success',
+        title: 'Report Archived',
+        message: `Report ${repId} successfully archived.`,
+      });
+    } catch (err: any) {
+      setToast({ id: Date.now().toString(), type: 'error', title: 'Error', message: err?.message || 'Failed to archive report.' });
+    }
   };
 
   const filtered = reports.filter((r) => {

@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Outlet, NavLink, Link, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Outlet, NavLink, Link, useNavigate, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
   FolderGit2,
@@ -13,14 +13,23 @@ import {
   User,
   LogOut,
   Radio,
+  Menu,
+  X,
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 
 export const AppLayout: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { role, profile, switchRoleForDemo, signOut } = useAuth();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Close mobile menu on route changes
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [location.pathname]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,7 +39,15 @@ export const AppLayout: React.FC = () => {
   };
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell ${mobileMenuOpen ? 'mobile-open' : ''}`}>
+      {/* Mobile Backdrop */}
+      {mobileMenuOpen && (
+        <div
+          className="mobile-sidebar-backdrop"
+          onClick={() => setMobileMenuOpen(false)}
+        />
+      )}
+
       {/* App Sidebar */}
       <aside className="sidebar">
         <div className="sidebar-brand">
@@ -44,7 +61,7 @@ export const AppLayout: React.FC = () => {
           </Link>
         </div>
 
-        <nav className="sidebar-nav">
+        <nav className="sidebar-nav" onClick={() => setMobileMenuOpen(false)}>
           <div className="nav-section-label">PORTFOLIO</div>
           <NavLink
             to="/dashboard"
@@ -89,8 +106,17 @@ export const AppLayout: React.FC = () => {
       <div className="main-content" style={{ marginLeft: 'var(--sidebar-width)', width: 'calc(100% - var(--sidebar-width))', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
         {/* TopBar */}
         <header className="topbar" style={{ position: 'relative' }}>
-          <div className="topbar-left" style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <form onSubmit={handleSearch} style={{ position: 'relative', width: '280px' }}>
+          <div className="topbar-left" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <button
+              type="button"
+              className="mobile-menu-btn"
+              onClick={() => setMobileMenuOpen((prev) => !prev)}
+              aria-label="Toggle navigation menu"
+              title="Toggle Navigation Menu"
+            >
+              {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+            </button>
+            <form onSubmit={handleSearch} style={{ position: 'relative', width: '280px', maxWidth: '100%' }}>
               <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
               <input
                 type="text"
