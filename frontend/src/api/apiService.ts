@@ -9,6 +9,8 @@ import {
   AuditTrailEntry,
   ProjectAnalytics,
   CandidateMatch,
+  ProjectNotification,
+  FieldUpdateRecord,
 } from '../lib/types';
 import {
   initialProjects,
@@ -20,6 +22,8 @@ import {
   initialTeamMembers,
   initialAuditLogs,
   initialProjectAnalytics,
+  initialNotifications,
+  initialFieldUpdates,
 } from '../mocks';
 
 // In-memory / localStorage state holders
@@ -49,6 +53,8 @@ let matchesState: ScheduleMatch[] = loadState('matches', initialMatches);
 let unmatchedState: UnmatchedActivity[] = loadState('unmatched', initialUnmatched);
 let teamState: TeamMember[] = loadState('team', initialTeamMembers);
 let auditState: AuditTrailEntry[] = loadState('audit', initialAuditLogs);
+let notificationsState: ProjectNotification[] = loadState('notifications', initialNotifications);
+let fieldUpdatesState: FieldUpdateRecord[] = loadState('field_updates', initialFieldUpdates);
 
 // Simulated async delay
 const delay = (ms: number = 200) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -81,6 +87,17 @@ export const apiService = {
     projectsState = [created, ...projectsState];
     saveState('projects', projectsState);
     return created;
+  },
+
+  async updateProject(id: string, updates: Partial<Project>): Promise<Project | undefined> {
+    await delay(200);
+    const idx = projectsState.findIndex((p) => p.id === id);
+    if (idx !== -1) {
+      projectsState[idx] = { ...projectsState[idx], ...updates };
+      saveState('projects', projectsState);
+      return projectsState[idx];
+    }
+    return undefined;
   },
 
   // Schedule
@@ -348,6 +365,38 @@ export const apiService = {
     return initialProjectAnalytics[projectId] || initialProjectAnalytics['proj-01'];
   },
 
+  // Notifications
+  async getNotifications(): Promise<ProjectNotification[]> {
+    await delay(100);
+    return [...notificationsState];
+  },
+
+  async markNotificationRead(id: string): Promise<void> {
+    notificationsState = notificationsState.map((n) => (n.id === id ? { ...n, read: true } : n));
+    saveState('notifications', notificationsState);
+  },
+
+  async clearAllNotifications(): Promise<void> {
+    notificationsState = notificationsState.map((n) => ({ ...n, read: true }));
+    saveState('notifications', notificationsState);
+  },
+
+  // Field Updates Feed
+  async getFieldUpdates(): Promise<FieldUpdateRecord[]> {
+    await delay(100);
+    return [...fieldUpdatesState];
+  },
+
+  async addFieldUpdate(record: Omit<FieldUpdateRecord, 'id'>): Promise<FieldUpdateRecord> {
+    const created: FieldUpdateRecord = {
+      ...record,
+      id: `FR-${Date.now().toString().slice(-4)}`,
+    };
+    fieldUpdatesState = [created, ...fieldUpdatesState];
+    saveState('field_updates', fieldUpdatesState);
+    return created;
+  },
+
   // Reset to initial mock data for demo
   resetMockData() {
     localStorage.removeItem('onground_projects');
@@ -358,6 +407,8 @@ export const apiService = {
     localStorage.removeItem('onground_unmatched');
     localStorage.removeItem('onground_team');
     localStorage.removeItem('onground_audit');
+    localStorage.removeItem('onground_notifications');
+    localStorage.removeItem('onground_field_updates');
     projectsState = [...initialProjects];
     scheduleState = [...initialSchedulePlan];
     reportsState = [...initialReports];
@@ -366,5 +417,7 @@ export const apiService = {
     unmatchedState = [...initialUnmatched];
     teamState = [...initialTeamMembers];
     auditState = [...initialAuditLogs];
+    notificationsState = [...initialNotifications];
+    fieldUpdatesState = [...initialFieldUpdates];
   },
 };

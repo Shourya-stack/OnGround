@@ -1,23 +1,27 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
   FileText,
   UploadCloud,
   Search,
-  RefreshCw,
   Archive,
   Eye,
+  RefreshCw,
 } from 'lucide-react';
 import { apiService } from '../../api/apiService';
 import { ReportItem } from '../../lib/types';
 import { LoadingSkeleton } from '../../components/common/LoadingSkeleton';
+import { EmptyState } from '../../components/common/EmptyState';
+import { ErrorState } from '../../components/common/ErrorState';
 import { Toast, ToastMessage } from '../../components/common/Toast';
 
 export const ProjectReportsPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const projectId = id || 'proj-01';
+  const navigate = useNavigate();
 
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [reports, setReports] = useState<ReportItem[]>([]);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -25,11 +29,13 @@ export const ProjectReportsPage: React.FC = () => {
 
   const loadReports = async () => {
     setLoading(true);
+    setError(null);
     try {
       const data = await apiService.getReports(projectId);
       setReports(data);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to load reports', err);
+      setError(err?.message || 'Failed to load daily reports.');
     } finally {
       setLoading(false);
     }
@@ -132,9 +138,29 @@ export const ProjectReportsPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Reports Table */}
+      {/* Reports Table Area */}
       {loading ? (
         <LoadingSkeleton rows={5} height="50px" />
+      ) : error ? (
+        <ErrorState message={error} onRetry={loadReports} />
+      ) : reports.length === 0 ? (
+        <EmptyState
+          title="No Daily Progress Reports"
+          description="Upload daily site diaries, contractor shift reports, or spreadsheets to extract physical progress."
+          actionLabel="Upload Daily Log"
+          onAction={() => navigate(`/projects/${projectId}/reports/upload`)}
+        />
+      ) : filtered.length === 0 ? (
+        <EmptyState
+          isFiltered
+          title="No Reports Match Filters"
+          description={`No daily reports matched "${search || statusFilter}". Try clearing your search query or status filter.`}
+          actionLabel="Reset Filters"
+          onAction={() => {
+            setSearch('');
+            setStatusFilter('all');
+          }}
+        />
       ) : (
         <div className="data-table-container">
           <table className="data-table">
@@ -198,15 +224,15 @@ export const ProjectReportsPage: React.FC = () => {
                     </span>
                   </td>
                   <td style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{rep.activities_count}</td>
-                  <td style={{ color: 'var(--confidence-high)', fontWeight: 600 }}>{rep.matched_count}</td>
-                  <td style={{ color: 'var(--confidence-review)', fontWeight: 600 }}>{rep.review_count}</td>
+                  <td style={{ fontWeight: 600, color: 'var(--confidence-high)' }}>{rep.matched_count}</td>
+                  <td style={{ fontWeight: 600, color: 'var(--confidence-review)' }}>{rep.review_count}</td>
                   <td style={{ textAlign: 'right' }}>
                     <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
                       <Link
-                        to={`/projects/${projectId}/reconciliation`}
+                        to={`/projects/${projectId}/processing`}
                         className="btn btn-ghost btn-sm"
                         style={{ padding: '4px 8px' }}
-                        title="View extraction"
+                        title="View Extraction & NLP details"
                       >
                         <Eye size={14} />
                       </Link>
@@ -214,8 +240,8 @@ export const ProjectReportsPage: React.FC = () => {
                         <button
                           type="button"
                           className="btn btn-ghost btn-sm"
-                          style={{ padding: '4px 8px', color: '#ef4444' }}
-                          title="Retry processing"
+                          style={{ padding: '4px 8px', color: 'var(--accent-blue)' }}
+                          title="Retry extraction"
                           onClick={() => handleRetry(rep.id)}
                         >
                           <RefreshCw size={14} />

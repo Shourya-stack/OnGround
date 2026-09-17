@@ -1,17 +1,21 @@
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { Search, MapPin, FileText, History } from 'lucide-react';
 
 import { apiService } from '../../api/apiService';
 import { ExtractedActivity, ScheduleMatch, ReportItem } from '../../lib/types';
 import { LoadingSkeleton } from '../../components/common/LoadingSkeleton';
+import { EmptyState } from '../../components/common/EmptyState';
+import { ErrorState } from '../../components/common/ErrorState';
 import { Drawer } from '../../components/ui/Drawer';
 
 export const ProjectActivitiesPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const projectId = id || 'proj-01';
+  const navigate = useNavigate();
 
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [activities, setActivities] = useState<ExtractedActivity[]>([]);
   const [matches, setMatches] = useState<ScheduleMatch[]>([]);
   const [reports, setReports] = useState<ReportItem[]>([]);
@@ -20,24 +24,27 @@ export const ProjectActivitiesPage: React.FC = () => {
   const [selectedDiscipline, setSelectedDiscipline] = useState('all');
   const [activeActivity, setActiveActivity] = useState<ExtractedActivity | null>(null);
 
+  const loadData = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [actData, matchData, repData] = await Promise.all([
+        apiService.getActivities(projectId),
+        apiService.getMatches(projectId),
+        apiService.getReports(projectId),
+      ]);
+      setActivities(actData);
+      setMatches(matchData);
+      setReports(repData);
+    } catch (err: any) {
+      console.error('Failed to load activities', err);
+      setError(err?.message || 'Failed to load physical activities. Please check connection and try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const loadData = async () => {
-      setLoading(true);
-      try {
-        const [actData, matchData, repData] = await Promise.all([
-          apiService.getActivities(projectId),
-          apiService.getMatches(projectId),
-          apiService.getReports(projectId),
-        ]);
-        setActivities(actData);
-        setMatches(matchData);
-        setReports(repData);
-      } catch (err) {
-        console.error('Failed to load activities', err);
-      } finally {
-        setLoading(false);
-      }
-    };
     loadData();
   }, [projectId]);
 
@@ -106,9 +113,29 @@ export const ProjectActivitiesPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Activities Table */}
+      {/* Activities Table Area */}
       {loading ? (
         <LoadingSkeleton rows={5} height="55px" />
+      ) : error ? (
+        <ErrorState message={error} onRetry={loadData} />
+      ) : activities.length === 0 ? (
+        <EmptyState
+          title="No Extracted Activities"
+          description="Upload and process daily progress reports to extract physical site activities into this project."
+          actionLabel="Upload Daily Report"
+          onAction={() => navigate(`/projects/${projectId}/reports/upload`)}
+        />
+      ) : filtered.length === 0 ? (
+        <EmptyState
+          isFiltered
+          title="No Activities Match Your Filters"
+          description={`No physical activities matched "${search || selectedDiscipline}". Try clearing your search query or selecting a different discipline.`}
+          actionLabel="Reset Filters"
+          onAction={() => {
+            setSearch('');
+            setSelectedDiscipline('all');
+          }}
+        />
       ) : (
         <div className="data-table-container">
           <table className="data-table">

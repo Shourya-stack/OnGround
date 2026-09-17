@@ -31,6 +31,9 @@ export interface SchedulePlanItem {
   discipline: DisciplineType;
   planned_start: string; // YYYY-MM-DD
   planned_end: string;   // YYYY-MM-DD
+  planned_progress?: number; // 0 - 100
+  actual_progress?: number;  // 0 - 100
+  status?: 'ON_TRACK' | 'ATTENTION' | 'DELAYED' | 'COMPLETED' | 'REVIEW';
   created_at: string;
 }
 
@@ -65,7 +68,10 @@ export interface CandidateMatch {
   plan_activity_id: string;
   activity_code: string;
   activity_description: string;
-  score: number; // 0.0 to 1.0
+  score: number; // 0.0 to 1.0 (similarity score)
+  reasons?: string[]; // Match justifications (e.g. 'Discipline match', 'Location match')
+  planned_progress?: number; // 0 - 100
+  actual_progress?: number;  // 0 - 100
 }
 
 export interface ScheduleMatch {
@@ -218,5 +224,28 @@ export interface ProjectAnalytics {
     count: number;
     percentage: number;
   }[];
+}
+
+export interface ProjectNotification {
+  id: string;
+  type: 'review' | 'variance' | 'evidence' | 'system';
+  title: string;
+  message: string;
+  timestamp: string;
+  read?: boolean;
+  link?: string;
+}
+
+export interface FieldUpdateRecord {
+  id: string;
+  time: string;
+  date: string;
+  source: string;
+  discipline: DisciplineType;
+  location: string;
+  text: string;
+  linked_activity_id?: string | null;
+  confidence: number;
+  state: 'LINKED' | 'AWAITING_REVIEW' | 'REVIEW_REQUIRED' | 'REJECTED';
 }
 

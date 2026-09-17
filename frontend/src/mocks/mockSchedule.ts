@@ -9,6 +9,9 @@ export const initialSchedulePlan: SchedulePlanItem[] = [
     discipline: 'civil',
     planned_start: '2026-09-01',
     planned_end: '2026-09-15',
+    planned_progress: 100,
+    actual_progress: 100,
+    status: 'COMPLETED',
     created_at: '2026-08-15T00:00:00Z',
   },
   {
@@ -19,6 +22,9 @@ export const initialSchedulePlan: SchedulePlanItem[] = [
     discipline: 'civil',
     planned_start: '2026-09-05',
     planned_end: '2026-09-20',
+    planned_progress: 88,
+    actual_progress: 85,
+    status: 'ON_TRACK',
     created_at: '2026-08-15T00:00:00Z',
   },
   {
@@ -29,6 +35,9 @@ export const initialSchedulePlan: SchedulePlanItem[] = [
     discipline: 'civil',
     planned_start: '2026-09-10',
     planned_end: '2026-09-25',
+    planned_progress: 76,
+    actual_progress: 72,
+    status: 'ON_TRACK',
     created_at: '2026-08-15T00:00:00Z',
   },
   {
@@ -39,6 +48,9 @@ export const initialSchedulePlan: SchedulePlanItem[] = [
     discipline: 'civil',
     planned_start: '2026-09-15',
     planned_end: '2026-10-05',
+    planned_progress: 45,
+    actual_progress: 32,
+    status: 'ATTENTION',
     created_at: '2026-08-15T00:00:00Z',
   },
   {
@@ -49,6 +61,9 @@ export const initialSchedulePlan: SchedulePlanItem[] = [
     discipline: 'piping',
     planned_start: '2026-09-08',
     planned_end: '2026-09-22',
+    planned_progress: 85,
+    actual_progress: 82,
+    status: 'ON_TRACK',
     created_at: '2026-08-15T00:00:00Z',
   },
   {
@@ -59,6 +74,9 @@ export const initialSchedulePlan: SchedulePlanItem[] = [
     discipline: 'piping',
     planned_start: '2026-09-10',
     planned_end: '2026-09-28',
+    planned_progress: 70,
+    actual_progress: 68,
+    status: 'ON_TRACK',
     created_at: '2026-08-15T00:00:00Z',
   },
   {
@@ -69,6 +87,9 @@ export const initialSchedulePlan: SchedulePlanItem[] = [
     discipline: 'piping',
     planned_start: '2026-09-18',
     planned_end: '2026-10-02',
+    planned_progress: 55,
+    actual_progress: 52,
+    status: 'ON_TRACK',
     created_at: '2026-08-15T00:00:00Z',
   },
   {
@@ -79,6 +100,9 @@ export const initialSchedulePlan: SchedulePlanItem[] = [
     discipline: 'piping',
     planned_start: '2026-09-22',
     planned_end: '2026-10-10',
+    planned_progress: 40,
+    actual_progress: 25,
+    status: 'DELAYED',
     created_at: '2026-08-15T00:00:00Z',
   },
   {
@@ -89,6 +113,9 @@ export const initialSchedulePlan: SchedulePlanItem[] = [
     discipline: 'piping',
     planned_start: '2026-09-05',
     planned_end: '2026-09-30',
+    planned_progress: 75,
+    actual_progress: 70,
+    status: 'ON_TRACK',
     created_at: '2026-08-15T00:00:00Z',
   },
   {
@@ -99,6 +126,9 @@ export const initialSchedulePlan: SchedulePlanItem[] = [
     discipline: 'electrical',
     planned_start: '2026-09-12',
     planned_end: '2026-09-26',
+    planned_progress: 60,
+    actual_progress: 54,
+    status: 'ON_TRACK',
     created_at: '2026-08-15T00:00:00Z',
   },
   {
@@ -109,6 +139,9 @@ export const initialSchedulePlan: SchedulePlanItem[] = [
     discipline: 'electrical',
     planned_start: '2026-09-15',
     planned_end: '2026-10-01',
+    planned_progress: 52,
+    actual_progress: 42,
+    status: 'ATTENTION',
     created_at: '2026-08-15T00:00:00Z',
   },
   {
@@ -119,6 +152,9 @@ export const initialSchedulePlan: SchedulePlanItem[] = [
     discipline: 'electrical',
     planned_start: '2026-09-18',
     planned_end: '2026-10-08',
+    planned_progress: 45,
+    actual_progress: 30,
+    status: 'DELAYED',
     created_at: '2026-08-15T00:00:00Z',
   },
   {
@@ -129,6 +165,9 @@ export const initialSchedulePlan: SchedulePlanItem[] = [
     discipline: 'electrical',
     planned_start: '2026-09-06',
     planned_end: '2026-09-24',
+    planned_progress: 82,
+    actual_progress: 80,
+    status: 'ON_TRACK',
     created_at: '2026-08-15T00:00:00Z',
   },
   {
@@ -139,6 +178,9 @@ export const initialSchedulePlan: SchedulePlanItem[] = [
     discipline: 'instrumentation',
     planned_start: '2026-09-14',
     planned_end: '2026-09-30',
+    planned_progress: 50,
+    actual_progress: 46,
+    status: 'ON_TRACK',
     created_at: '2026-08-15T00:00:00Z',
   },
   {
@@ -149,6 +191,9 @@ export const initialSchedulePlan: SchedulePlanItem[] = [
     discipline: 'instrumentation',
     planned_start: '2026-09-20',
     planned_end: '2026-10-12',
+    planned_progress: 35,
+    actual_progress: 30,
+    status: 'ON_TRACK',
     created_at: '2026-08-15T00:00:00Z',
   },
   {
@@ -159,6 +204,9 @@ export const initialSchedulePlan: SchedulePlanItem[] = [
     discipline: 'instrumentation',
     planned_start: '2026-09-25',
     planned_end: '2026-10-18',
+    planned_progress: 20,
+    actual_progress: 20,
+    status: 'ON_TRACK',
     created_at: '2026-08-15T00:00:00Z',
   },
   {
@@ -169,6 +217,9 @@ export const initialSchedulePlan: SchedulePlanItem[] = [
     discipline: 'static_rotating_equipment',
     planned_start: '2026-09-16',
     planned_end: '2026-09-24',
+    planned_progress: 75,
+    actual_progress: 68,
+    status: 'ATTENTION',
     created_at: '2026-08-15T00:00:00Z',
   },
   {
@@ -179,6 +230,9 @@ export const initialSchedulePlan: SchedulePlanItem[] = [
     discipline: 'static_rotating_equipment',
     planned_start: '2026-09-22',
     planned_end: '2026-10-06',
+    planned_progress: 40,
+    actual_progress: 35,
+    status: 'ON_TRACK',
     created_at: '2026-08-15T00:00:00Z',
   },
   {
@@ -189,6 +243,9 @@ export const initialSchedulePlan: SchedulePlanItem[] = [
     discipline: 'static_rotating_equipment',
     planned_start: '2026-09-25',
     planned_end: '2026-10-14',
+    planned_progress: 30,
+    actual_progress: 25,
+    status: 'ON_TRACK',
     created_at: '2026-08-15T00:00:00Z',
   },
   {
@@ -199,6 +256,9 @@ export const initialSchedulePlan: SchedulePlanItem[] = [
     discipline: 'hse',
     planned_start: '2026-09-01',
     planned_end: '2026-10-31',
+    planned_progress: 100,
+    actual_progress: 100,
+    status: 'COMPLETED',
     created_at: '2026-08-15T00:00:00Z',
   },
   {
@@ -209,6 +269,9 @@ export const initialSchedulePlan: SchedulePlanItem[] = [
     discipline: 'hse',
     planned_start: '2026-09-10',
     planned_end: '2026-10-15',
+    planned_progress: 100,
+    actual_progress: 100,
+    status: 'COMPLETED',
     created_at: '2026-08-15T00:00:00Z',
   },
 ];

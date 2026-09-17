@@ -6,3 +6,4 @@ export * from './mockMatches';
 export * from './mockTeam';
 export * from './mockAudit';
 export * from './mockAnalytics';
+export * from './mockFeedAndNotifications';

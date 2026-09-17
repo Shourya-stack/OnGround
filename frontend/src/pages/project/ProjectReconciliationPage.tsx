@@ -1,36 +1,43 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import {
+  Search,
   Check,
   X,
-  Search,
   CheckCircle2,
 } from 'lucide-react';
 import { apiService } from '../../api/apiService';
 import { ScheduleMatch, CandidateMatch } from '../../lib/types';
 import { LoadingSkeleton } from '../../components/common/LoadingSkeleton';
+import { EmptyState } from '../../components/common/EmptyState';
+import { ErrorState } from '../../components/common/ErrorState';
 import { Toast, ToastMessage } from '../../components/common/Toast';
-import { DisambiguationPanel } from '../../components/reconciliation/DisambiguationPanel';
 import { Modal } from '../../components/ui/Modal';
+import { DisambiguationPanel } from '../../components/reconciliation/DisambiguationPanel';
+import { TraceabilityModal } from '../../components/traceability/TraceabilityModal';
 
 export const ProjectReconciliationPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const projectId = id || 'proj-01';
 
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [matches, setMatches] = useState<ScheduleMatch[]>([]);
   const [activeTab, setActiveTab] = useState<'review' | 'matched' | 'unmatched'>('review');
   const [search, setSearch] = useState('');
   const [disambiguateMatch, setDisambiguateMatch] = useState<ScheduleMatch | null>(null);
+  const [traceMatch, setTraceMatch] = useState<ScheduleMatch | null>(null);
   const [toast, setToast] = useState<ToastMessage | null>(null);
 
   const loadMatches = async () => {
     setLoading(true);
+    setError(null);
     try {
       const data = await apiService.getMatches(projectId);
       setMatches(data);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to load matches', err);
+      setError(err?.message || 'Failed to load reconciliation items.');
     } finally {
       setLoading(false);
     }
@@ -199,28 +206,42 @@ export const ProjectReconciliationPage: React.FC = () => {
       {/* Reconciliation Cards List */}
       {loading ? (
         <LoadingSkeleton rows={4} height="80px" />
+      ) : error ? (
+        <ErrorState message={error} onRetry={loadMatches} />
+      ) : currentList.length === 0 ? (
+        <EmptyState
+          icon={CheckCircle2}
+          title={
+            activeTab === 'review'
+              ? 'Review Queue Clear!'
+              : activeTab === 'matched'
+              ? 'No Confirmed Matches'
+              : 'No Rejected Activities'
+          }
+          description={
+            activeTab === 'review'
+              ? 'All ambiguous extracted activities have been reconciled to the master schedule.'
+              : activeTab === 'matched'
+              ? 'No confirmed schedule matches are recorded for this project yet.'
+              : 'No physical tasks have been rejected or marked as unmatched.'
+          }
+        />
       ) : filtered.length === 0 ? (
-        <div className="glass-card" style={{ textAlign: 'center', padding: '60px 20px' }}>
-          <CheckCircle2 size={48} style={{ color: 'var(--confidence-high)', margin: '0 auto 16px' }} />
-          <h3 style={{ fontSize: '1.2rem', fontWeight: 700, marginBottom: '8px' }}>
-            {activeTab === 'review' ? 'No Items Pending Review' : 'No Reconciliation Records Found'}
-          </h3>
-          <p style={{ color: 'var(--text-muted)', fontSize: '14px' }}>
-            {activeTab === 'review' ? 'All extracted physical activities have been reconciled.' : 'No items match your active filter.'}
-          </p>
-        </div>
+        <EmptyState
+          isFiltered
+          title="No Activities Match Your Search"
+          description={`No items in "${activeTab === 'review' ? 'Needs Review' : activeTab === 'matched' ? 'Matched' : 'Rejected'}" matched your query "${search}".`}
+          actionLabel="Clear Search"
+          onAction={() => setSearch('')}
+        />
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           {filtered.map((m) => (
             <div
               key={m.id}
-              className="glass-card"
+              className="glass-card reconciliation-card"
               style={{
                 padding: '20px 24px',
-                display: 'grid',
-                gridTemplateColumns: '1.4fr auto 1.4fr auto',
-                gap: '20px',
-                alignItems: 'center',
               }}
             >
               {/* Daily Report Extracted Activity */}
@@ -297,6 +318,14 @@ export const ProjectReconciliationPage: React.FC = () => {
                     >
                       <X size={14} />
                     </button>
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-sm"
+                      title="Trace full evidence chain"
+                      onClick={() => setTraceMatch(m)}
+                    >
+                      Trace
+                    </button>
                   </>
                 ) : (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -319,6 +348,14 @@ export const ProjectReconciliationPage: React.FC = () => {
                       onClick={() => setDisambiguateMatch(m)}
                     >
                       Inspect
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-sm"
+                      title="Trace full evidence chain"
+                      onClick={() => setTraceMatch(m)}
+                    >
+                      Trace
                     </button>
                   </div>
                 )}
@@ -343,6 +380,15 @@ export const ProjectReconciliationPage: React.FC = () => {
             onReject={handleReject}
           />
         </Modal>
+      )}
+
+      {/* Traceability Modal */}
+      {traceMatch && (
+        <TraceabilityModal
+          isOpen={!!traceMatch}
+          onClose={() => setTraceMatch(null)}
+          match={traceMatch}
+        />
       )}
 
       <Toast toast={toast} onClose={() => setToast(null)} />

@@ -1,3 +1,4 @@
+import React, { useState, useEffect } from 'react';
 import { Outlet, NavLink, useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -19,9 +20,17 @@ import {
   User,
   LogOut,
   ChevronDown,
+  Search,
+  Bell,
+  Menu,
+  X,
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useProject } from '../../context/ProjectContext';
+import { apiService } from '../../api/apiService';
+import { ProjectNotification } from '../../lib/types';
+import { GlobalSearchModal } from '../common/GlobalSearchModal';
+import { NotificationsDrawer } from '../common/NotificationsDrawer';
 
 export const ProjectWorkspaceLayout: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -30,6 +39,40 @@ export const ProjectWorkspaceLayout: React.FC = () => {
   const location = useLocation();
   const { role, profile, switchRoleForDemo, signOut } = useAuth();
   const { activeProject, projects, setActiveProjectId } = useProject();
+
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [notifications, setNotifications] = useState<ProjectNotification[]>([]);
+
+  // Close mobile menu on route changes
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [location.pathname]);
+
+  useEffect(() => {
+    const loadNotifications = async () => {
+      try {
+        const notifs = await apiService.getNotifications();
+        setNotifications(notifs);
+      } catch (e) {
+        console.error('Failed to load notifications', e);
+      }
+    };
+    loadNotifications();
+  }, []);
+
+  // Global Ctrl+K shortcut listener
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setSearchOpen((prev) => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   const currentProj = projects.find((p) => p.id === projectId) || activeProject;
 
@@ -76,7 +119,15 @@ export const ProjectWorkspaceLayout: React.FC = () => {
   ];
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell ${mobileMenuOpen ? 'mobile-open' : ''}`}>
+      {/* Mobile Backdrop */}
+      {mobileMenuOpen && (
+        <div
+          className="mobile-sidebar-backdrop"
+          onClick={() => setMobileMenuOpen(false)}
+        />
+      )}
+
       {/* Workspace Sidebar */}
       <aside className="sidebar" style={{ overflowY: 'auto' }}>
         {/* Project Switcher Dropdown in Brand Header */}
@@ -91,18 +142,16 @@ export const ProjectWorkspaceLayout: React.FC = () => {
             <div style={{ position: 'relative' }}>
               <select
                 className="form-select"
-                value={currentProj?.id || projectId}
+                value={projectId}
                 onChange={(e) => handleProjectSwitch(e.target.value)}
                 style={{
-                  width: '100%',
                   fontSize: '13px',
                   fontWeight: 600,
                   padding: '6px 28px 6px 10px',
-                  height: '34px',
-                  backgroundColor: 'var(--bg-surface)',
-                  borderColor: 'var(--border-medium)',
-                  color: 'var(--text-primary)',
-                  appearance: 'none',
+                  backgroundColor: 'var(--bg-card)',
+                  borderColor: 'var(--border-subtle)',
+                  cursor: 'pointer',
+                  width: '100%',
                 }}
               >
                 {projects.map((p) => (
@@ -174,15 +223,63 @@ export const ProjectWorkspaceLayout: React.FC = () => {
       <div className="main-content" style={{ marginLeft: 'var(--sidebar-width)', width: 'calc(100% - var(--sidebar-width))', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
         {/* Workspace TopBar */}
         <header className="topbar">
-          <div className="topbar-left" style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+          <div className="topbar-left" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <button
+              type="button"
+              className="mobile-menu-btn"
+              onClick={() => setMobileMenuOpen((prev) => !prev)}
+              aria-label="Toggle navigation menu"
+              title="Toggle Navigation Menu"
+            >
+              {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+            </button>
             <div className="project-badge">
               <span className="project-dot" />
               <span className="project-name">{currentProj?.name || 'Line 247 EPC Package'}</span>
             </div>
-            <span style={{ color: 'var(--text-muted)', fontSize: '13px' }}>• {currentProj?.client}</span>
+            <span className="project-client-sub" style={{ color: 'var(--text-muted)', fontSize: '13px' }}>• {currentProj?.client}</span>
           </div>
 
-          <div className="topbar-right">
+          <div className="topbar-right" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            {/* Quick Search Button (Ctrl+K) */}
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              onClick={() => setSearchOpen(true)}
+              style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 12px', fontSize: '12px' }}
+              title="Global Search (Ctrl+K)"
+            >
+              <Search size={14} />
+              <span>Search</span>
+              <kbd style={{ fontSize: '10px', background: 'rgba(255,255,255,0.08)', padding: '1px 5px', borderRadius: '3px', border: '1px solid var(--border-subtle)' }}>
+                Ctrl K
+              </kbd>
+            </button>
+
+            {/* Notifications Bell */}
+            <button
+              type="button"
+              className="icon-action-btn"
+              onClick={() => setNotificationsOpen(true)}
+              title="Notifications & Alerts"
+              style={{ position: 'relative' }}
+            >
+              <Bell size={16} />
+              {notifications.some((n) => !n.read) && (
+                <span
+                  style={{
+                    position: 'absolute',
+                    top: '6px',
+                    right: '6px',
+                    width: '7px',
+                    height: '7px',
+                    backgroundColor: '#ef4444',
+                    borderRadius: '50%',
+                  }}
+                />
+              )}
+            </button>
+
             {/* Demo Role Switcher */}
             <div className="demo-role-switcher" title="Toggle Planner vs Supervisor permissions">
               <span className="role-switcher-label">DEMO ROLE:</span>
@@ -230,10 +327,35 @@ export const ProjectWorkspaceLayout: React.FC = () => {
         </header>
 
         {/* Page Content */}
-        <main style={{ padding: '32px', flex: 1, backgroundColor: 'var(--bg-primary)' }}>
+        <main className="workspace-main-content" style={{ flex: 1, backgroundColor: 'var(--bg-primary)' }}>
           <Outlet />
         </main>
       </div>
+
+      {/* Global Search Modal (Ctrl+K) */}
+      <GlobalSearchModal
+        isOpen={searchOpen}
+        onClose={() => setSearchOpen(false)}
+      />
+
+      {/* Notifications Drawer */}
+      <NotificationsDrawer
+        isOpen={notificationsOpen}
+        onClose={() => setNotificationsOpen(false)}
+        notifications={notifications}
+        onMarkAllRead={async () => {
+          await apiService.clearAllNotifications();
+          setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+        }}
+        onSelectNotification={async (item) => {
+          await apiService.markNotificationRead(item.id);
+          setNotifications((prev) => prev.map((n) => (n.id === item.id ? { ...n, read: true } : n)));
+          if (item.link) {
+            setNotificationsOpen(false);
+            navigate(item.link);
+          }
+        }}
+      />
     </div>
   );
 };

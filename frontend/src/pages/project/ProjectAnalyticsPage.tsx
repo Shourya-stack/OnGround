@@ -177,6 +177,77 @@ export const ProjectAnalyticsPage: React.FC = () => {
           ))}
         </div>
       </div>
+
+      {/* Planned vs Actual Summary by Discipline */}
+      <div className="glass-card" style={{ padding: '28px' }}>
+        <h2 style={{ fontSize: '1.15rem', fontWeight: 700, marginBottom: '6px' }}>Planned vs Actual Progress & Variance Summary</h2>
+        <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '20px' }}>
+          Consolidated progress variance breakdown across engineering work packages
+        </p>
+
+        <div className="data-table-container">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Discipline</th>
+                <th style={{ width: '130px' }}>Planned Progress</th>
+                <th style={{ width: '130px' }}>Actual Recorded</th>
+                <th style={{ width: '130px' }}>Schedule Variance</th>
+                <th style={{ width: '140px', textAlign: 'right' }}>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[
+                { name: 'Civil & Earthworks', planned: 82, actual: 76 },
+                { name: 'Piping Fabrication & Erection', planned: 65, actual: 64 },
+                { name: 'Electrical & Substation', planned: 55, actual: 45 },
+                { name: 'Instrumentation & Loops', planned: 40, actual: 38 },
+                { name: 'Equipment Placement', planned: 60, actual: 52 },
+                { name: 'HSE & Safety Standards', planned: 100, actual: 100 },
+              ].map((row) => {
+                const variance = row.actual - row.planned;
+                const status =
+                  variance === 0 ? 'ON TRACK' : variance < -5 ? 'DELAYED' : variance < 0 ? 'ATTENTION' : 'ON TRACK';
+
+                return (
+                  <tr key={row.name}>
+                    <td style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{row.name}</td>
+                    <td style={{ fontSize: '13px', fontWeight: 600 }}>{row.planned}%</td>
+                    <td style={{ fontSize: '13px', fontWeight: 700, color: 'var(--accent-blue)' }}>{row.actual}%</td>
+                    <td style={{ fontSize: '13px', fontWeight: 700, color: variance < 0 ? '#ef4444' : 'var(--confidence-high)' }}>
+                      {variance > 0 ? `+${variance}%` : `${variance}%`}
+                    </td>
+                    <td style={{ textAlign: 'right' }}>
+                      <span
+                        style={{
+                          fontSize: '10.5px',
+                          fontWeight: 700,
+                          padding: '3px 8px',
+                          borderRadius: '4px',
+                          backgroundColor:
+                            status === 'ON TRACK'
+                              ? 'rgba(16, 185, 129, 0.15)'
+                              : status === 'ATTENTION'
+                              ? 'rgba(245, 158, 11, 0.15)'
+                              : 'rgba(239, 68, 68, 0.15)',
+                          color:
+                            status === 'ON TRACK'
+                              ? 'var(--confidence-high)'
+                              : status === 'ATTENTION'
+                              ? 'var(--confidence-review)'
+                              : '#ef4444',
+                        }}
+                      >
+                        {status}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   );
 };
