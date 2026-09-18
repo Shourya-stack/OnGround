@@ -19,22 +19,19 @@ export const PublicNavbar: React.FC = () => {
         {/* Desktop Links */}
         <nav className="public-nav-links">
           <NavLink to="/features" className={({ isActive }) => `public-nav-link ${isActive ? 'active' : ''}`}>
-            Features
-          </NavLink>
-          <NavLink to="/how-it-works" className={({ isActive }) => `public-nav-link ${isActive ? 'active' : ''}`}>
-            How It Works
+            Product
           </NavLink>
           <NavLink to="/solutions" className={({ isActive }) => `public-nav-link ${isActive ? 'active' : ''}`}>
             Solutions
+          </NavLink>
+          <NavLink to="/how-it-works" className={({ isActive }) => `public-nav-link ${isActive ? 'active' : ''}`}>
+            How It Works
           </NavLink>
           <NavLink to="/pricing" className={({ isActive }) => `public-nav-link ${isActive ? 'active' : ''}`}>
             Pricing
           </NavLink>
           <NavLink to="/docs" className={({ isActive }) => `public-nav-link ${isActive ? 'active' : ''}`}>
-            Documentation
-          </NavLink>
-          <NavLink to="/about" className={({ isActive }) => `public-nav-link ${isActive ? 'active' : ''}`}>
-            About
+            Resources
           </NavLink>
         </nav>
 
@@ -78,22 +75,19 @@ export const PublicNavbar: React.FC = () => {
           }}
         >
           <Link to="/features" className="public-nav-link" onClick={() => setMobileMenuOpen(false)}>
-            Features
-          </Link>
-          <Link to="/how-it-works" className="public-nav-link" onClick={() => setMobileMenuOpen(false)}>
-            How It Works
+            Product
           </Link>
           <Link to="/solutions" className="public-nav-link" onClick={() => setMobileMenuOpen(false)}>
             Solutions
+          </Link>
+          <Link to="/how-it-works" className="public-nav-link" onClick={() => setMobileMenuOpen(false)}>
+            How It Works
           </Link>
           <Link to="/pricing" className="public-nav-link" onClick={() => setMobileMenuOpen(false)}>
             Pricing
           </Link>
           <Link to="/docs" className="public-nav-link" onClick={() => setMobileMenuOpen(false)}>
-            Documentation
-          </Link>
-          <Link to="/about" className="public-nav-link" onClick={() => setMobileMenuOpen(false)}>
-            About
+            Resources
           </Link>
           <div style={{ height: '1px', background: 'var(--border-subtle)', margin: '8px 0' }} />
           <div style={{ display: 'flex', gap: '12px' }}>

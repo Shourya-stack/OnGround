@@ -577,37 +577,51 @@ body {
   gap: 12px;
 }
 
-/* Public Footer */
+/* Public Footer — Hero14 Visual Harmony */
 .public-footer {
   margin-top: auto;
-  border-top: 1px solid var(--border-subtle);
-  background-color: var(--bg-secondary);
-  padding: 64px 24px 32px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  background-color: #020617;
+  padding: 72px 24px 36px;
 }
 
 .footer-container {
-  max-width: 1280px;
+  max-width: 1200px;
   margin: 0 auto;
   display: grid;
   grid-template-columns: 2fr 1fr 1fr 1fr 1fr;
   gap: 48px;
-  margin-bottom: 48px;
+  margin-bottom: 56px;
+}
+
+@media (max-width: 900px) {
+  .footer-container {
+    grid-template-columns: 1fr 1fr;
+    gap: 36px;
+  }
+}
+
+@media (max-width: 600px) {
+  .footer-container {
+    grid-template-columns: 1fr;
+    gap: 32px;
+  }
 }
 
 .footer-brand-col p {
-  color: var(--text-muted);
+  color: rgba(255, 255, 255, 0.6);
   font-size: 14px;
   margin-top: 14px;
-  line-height: 1.6;
+  line-height: 1.65;
   max-width: 320px;
 }
 
 .footer-col h4 {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--text-primary);
+  letter-spacing: 0.08em;
+  color: #ffffff;
   margin-bottom: 18px;
 }
 
@@ -619,26 +633,38 @@ body {
 }
 
 .footer-col a {
-  color: var(--text-muted);
+  color: rgba(255, 255, 255, 0.62);
   text-decoration: none;
   font-size: 14px;
   transition: color 0.15s ease;
 }
 
 .footer-col a:hover {
-  color: var(--accent-blue);
+  color: #ffffff;
 }
 
 .footer-bottom {
-  max-width: 1280px;
+  max-width: 1200px;
   margin: 0 auto;
-  padding-top: 24px;
-  border-top: 1px solid var(--border-subtle);
+  padding-top: 28px;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
   display: flex;
   justify-content: space-between;
   align-items: center;
-  color: var(--text-muted);
+  color: rgba(255, 255, 255, 0.5);
   font-size: 13px;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.footer-bottom a {
+  color: rgba(255, 255, 255, 0.5);
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.footer-bottom a:hover {
+  color: #ffffff;
 }
 
 /* Hero & Section Utilities */
