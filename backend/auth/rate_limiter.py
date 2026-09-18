@@ -69,21 +69,36 @@ class InMemoryRateLimiter:
         self._lock = threading.Lock()
         self._records: Dict[str, List[float]] = {}
 
-    def check(self, request: Request, endpoint_key: str, env_var: str, default_limit: str = "10/minute") -> None:
+    def check(
+        self,
+        request: Request,
+        endpoint_key: str,
+        env_var: str,
+        default_limit: str = "10/minute",
+        user_id: Optional[str] = None,
+    ) -> None:
         """
         Validates whether the current request is within the rate limit.
         Raises HTTPException(429) if the limit is exceeded.
+        Identifies client primarily by authenticated user ID (un-spoofable),
+        or by client host IP. X-Forwarded-For is only trusted if TRUST_PROXY_HEADERS=true.
         """
         limit_str = os.getenv(env_var, default_limit)
         max_requests, window_seconds = parse_rate_limit(limit_str)
 
-        # Identify client by user ID, X-Forwarded-For, or client host
-        client_id = "unknown"
-        if request.client and request.client.host:
-            client_id = request.client.host
-        forwarded = request.headers.get("x-forwarded-for")
-        if forwarded:
-            client_id = forwarded.split(",")[0].strip()
+        # 1. Primary identification: authenticated user ID
+        client_id = f"user:{user_id}" if user_id else "unknown"
+
+        # 2. Secondary identification: client IP with safe proxy handling
+        if client_id == "unknown":
+            trust_proxy = os.getenv("TRUST_PROXY_HEADERS", "false").lower() in ("true", "1", "yes")
+            if trust_proxy:
+                forwarded = request.headers.get("x-forwarded-for")
+                if forwarded:
+                    client_id = forwarded.split(",")[0].strip()
+            
+            if client_id == "unknown" and request.client and request.client.host:
+                client_id = request.client.host
 
         storage_key = f"{endpoint_key}:{client_id}"
         now = time.monotonic()

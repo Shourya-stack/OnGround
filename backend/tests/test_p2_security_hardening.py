@@ -10,6 +10,7 @@ from uuid import uuid4
 from unittest.mock import patch, MagicMock
 from fastapi.testclient import TestClient
 from backend.main import app
+from backend.models.schemas import ExtractedActivityCreate
 from backend.auth.rate_limiter import limiter
 
 
@@ -71,6 +72,11 @@ class TestP2SecurityHardening(unittest.TestCase):
             {"id": str(self.planner_id), "role": "planner"}
         ]
 
+        mock_memberships = MagicMock()
+        mock_memberships.select.return_value.eq.return_value.eq.return_value.execute.return_value.data = [
+            {"id": str(uuid4()), "project_id": str(project_id), "user_id": str(self.planner_id)}
+        ]
+
         def router(tbl):
             if tbl == "schedule_matches":
                 return mock_matches
@@ -78,6 +84,8 @@ class TestP2SecurityHardening(unittest.TestCase):
                 return mock_plan
             elif tbl == "profiles":
                 return mock_profiles
+            elif tbl == "project_memberships":
+                return mock_memberships
             return MagicMock()
 
         mock_supabase.table.side_effect = router
@@ -331,18 +339,27 @@ class TestP2SecurityHardening(unittest.TestCase):
             return MagicMock()
 
         mock_supabase.table.side_effect = table_router
+        mock_extracted_data = [
+            ExtractedActivityCreate(
+                extraction_id=extraction_id,
+                activity_description="Piping fitup",
+                discipline="piping",
+                extraction_confidence=0.95,
+            )
+        ]
 
         with patch("backend.auth.security.get_supabase_client", return_value=self.mock_planner_supabase):
             with patch("backend.routes.extract.get_supabase_client", return_value=mock_supabase):
-                with patch("backend.routes.extract.log_action"):
-                    response = self.client.post(
-                        f"/extract/{extraction_id}",
-                        headers=self.planner_headers,
-                        json={"raw_text": "Fit-up of 12-inch pipe in Unit 200 (08:00 to 14:00). Discipline: Piping."},
-                    )
-                    self.assertEqual(response.status_code, 200)
-                    mock_extractions.update.assert_any_call({"status": "processing"})
-                    mock_extractions.update.assert_any_call({"status": "complete"})
+                with patch("backend.services.extraction_service.ExtractionService.process_file_content", return_value=mock_extracted_data):
+                    with patch("backend.routes.extract.log_action"):
+                        response = self.client.post(
+                            f"/extract/{extraction_id}",
+                            headers=self.planner_headers,
+                            json={"raw_text": "Fit-up of 12-inch pipe in Unit 200 (08:00 to 14:00). Discipline: Piping."},
+                        )
+                        self.assertEqual(response.status_code, 200)
+                        mock_extractions.update.assert_any_call({"status": "processing"})
+                        mock_extractions.update.assert_any_call({"status": "complete"})
 
 
 if __name__ == "__main__":

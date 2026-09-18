@@ -13,7 +13,7 @@ from backend.models.schemas import ExtractionResponse, CurrentUser
 from backend.db.supabase_client import get_supabase_client
 from backend.services.extraction_service import ExtractionService
 from backend.services.audit_service import log_action
-from backend.auth.security import require_any_authenticated
+from backend.auth.security import require_any_authenticated, verify_user_project_access
 from backend.auth.rate_limiter import rate_limit_extraction
 
 router = APIRouter(prefix="", tags=["Extraction"])
@@ -32,6 +32,7 @@ async def extract_activities(
     If raw_text is provided in request body, uses it directly;
     otherwise retrieves the stored file from Supabase Storage.
     Manages robust state transitions: pending -> processing -> complete / failed.
+    Enforces resource ownership / project membership (SEC-04).
     """
     supabase = get_supabase_client()
     filename = "report.txt"
@@ -45,7 +46,7 @@ async def extract_activities(
             except Exception as mark_err:
                 logger.error(f"Secondary failure: could not persist extraction status 'failed': {mark_err}")
 
-    # 1. Verify extraction record exists if supabase is active
+    # 1. Verify extraction record exists and check resource authorization (SEC-04)
     if supabase:
         try:
             rec = supabase.table("extractions").select("*").eq("id", str(extraction_id)).execute()
@@ -56,6 +57,22 @@ async def extract_activities(
                 )
             if rec.data and len(rec.data) > 0:
                 extraction_record = rec.data[0]
+                
+                # SEC-04: Enforce that current user is the uploader OR has authorized project access
+                uploaded_by = extraction_record.get("uploaded_by")
+                project_id = extraction_record.get("project_id")
+                is_owner = uploaded_by and str(uploaded_by) == str(current_user.id)
+                has_proj_access = verify_user_project_access(current_user.id, project_id)
+
+                if not is_owner and not has_proj_access:
+                    logger.warning(
+                        f"Unauthorized extraction access attempt: User {current_user.id} requested extraction {extraction_id} "
+                        f"owned by {uploaded_by} (project: {project_id})"
+                    )
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail="Forbidden: User does not own extraction job and is not an authorized project member",
+                    )
         except HTTPException:
             raise
         except Exception as e:

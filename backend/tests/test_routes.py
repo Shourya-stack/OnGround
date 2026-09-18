@@ -112,7 +112,8 @@ class TestRoutes(unittest.TestCase):
         mock_planner.table.return_value.select.return_value.eq.return_value.execute.return_value.data = [
             {"id": str(planner_id), "role": "planner"}
         ]
-        with patch("backend.auth.security.get_supabase_client", return_value=mock_planner):
+        with patch("backend.auth.security.get_supabase_client", return_value=mock_planner), \
+             patch("backend.routes.review.get_supabase_client", return_value=mock_planner):
             planner_resp = self.client.post(
                 f"/match/{match_id}/confirm",
                 headers={"Authorization": "Bearer valid.planner.token"},
@@ -151,7 +152,8 @@ class TestRoutes(unittest.TestCase):
         mock_planner.table.return_value.select.return_value.eq.return_value.execute.return_value.data = [
             {"id": str(planner_id), "role": "planner"}
         ]
-        with patch("backend.auth.security.get_supabase_client", return_value=mock_planner):
+        with patch("backend.auth.security.get_supabase_client", return_value=mock_planner), \
+             patch("backend.routes.review.get_supabase_client", return_value=mock_planner):
             planner_resp = self.client.post(
                 f"/match/{match_id}/reject",
                 headers={"Authorization": "Bearer valid.planner.token"},

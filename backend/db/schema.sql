@@ -39,6 +39,40 @@ CREATE TRIGGER on_auth_user_created
     AFTER INSERT ON auth.users
     FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
+-- Trigger to prevent direct role escalation by authenticated users (SEC-01)
+CREATE OR REPLACE FUNCTION public.protect_profile_role()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- If role is being changed and executed in context of an end-user session
+    IF (auth.uid() IS NOT NULL OR current_user = 'authenticated') AND NEW.role IS DISTINCT FROM OLD.role THEN
+        RAISE EXCEPTION 'Users are not permitted to modify their own role.';
+    END IF;
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS protect_profile_role_trigger ON public.profiles;
+CREATE TRIGGER protect_profile_role_trigger
+    BEFORE UPDATE ON public.profiles
+    FOR EACH ROW EXECUTE FUNCTION public.protect_profile_role();
+
+-- =============================================================================
+-- 1.1 PROJECT_MEMBERSHIPS (Multi-Tenant Isolation & Access Control)
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS public.project_memberships (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    project_id UUID NOT NULL,
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    role TEXT CHECK (role IN ('planner', 'supervisor')) DEFAULT 'supervisor',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE(project_id, user_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_project_memberships_user ON public.project_memberships(user_id);
+CREATE INDEX IF NOT EXISTS idx_project_memberships_project ON public.project_memberships(project_id);
+
+
 -- =============================================================================
 -- 2. SCHEDULE_PLAN (Baseline WBS Schedule — Static Ground Truth)
 -- =============================================================================
@@ -142,10 +176,11 @@ CREATE INDEX IF NOT EXISTS idx_audit_unmatched ON public.audit_trail(related_unm
 CREATE INDEX IF NOT EXISTS idx_audit_created ON public.audit_trail(created_at DESC);
 
 -- =============================================================================
--- 8. ROW LEVEL SECURITY (RLS) POLICIES
+-- 8. ROW LEVEL SECURITY (RLS) POLICIES & PROJECT ISOLATION (SEC-01 & SEC-02)
 -- =============================================================================
 
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.project_memberships ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.schedule_plan ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.extractions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.extracted_activities ENABLE ROW LEVEL SECURITY;
@@ -164,7 +199,21 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER STABLE;
 
--- Profiles: Authenticated users can read all profiles; users can update own profile
+-- Helper function to check if current user has access to a project (SEC-02)
+CREATE OR REPLACE FUNCTION public.has_project_access(p_project_id UUID)
+RETURNS BOOLEAN AS $$
+BEGIN
+    RETURN (
+        p_project_id = '00000000-0000-0000-0000-000000000001'::uuid
+        OR EXISTS (
+            SELECT 1 FROM public.project_memberships
+            WHERE project_id = p_project_id AND user_id = auth.uid()
+        )
+    );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER STABLE;
+
+-- Profiles: Authenticated users can read all profiles; users can update own profile (role protected by trigger)
 CREATE POLICY "Profiles read by authenticated"
     ON public.profiles FOR SELECT
     TO authenticated
@@ -173,67 +222,112 @@ CREATE POLICY "Profiles read by authenticated"
 CREATE POLICY "Users update own profile"
     ON public.profiles FOR UPDATE
     TO authenticated
-    USING (auth.uid() = id);
+    USING (auth.uid() = id)
+    WITH CHECK (auth.uid() = id);
 
--- SCHEDULE_PLAN: Authenticated can read; only planners can insert/update/delete
-CREATE POLICY "Schedule plan read by authenticated"
+-- PROJECT_MEMBERSHIPS: Users can read own memberships; planners can manage memberships
+CREATE POLICY "Project memberships read by authenticated"
+    ON public.project_memberships FOR SELECT
+    TO authenticated
+    USING (user_id = auth.uid() OR public.is_planner());
+
+CREATE POLICY "Project memberships insert by planner"
+    ON public.project_memberships FOR INSERT
+    TO authenticated
+    WITH CHECK (public.is_planner());
+
+CREATE POLICY "Project memberships update by planner"
+    ON public.project_memberships FOR UPDATE
+    TO authenticated
+    USING (public.is_planner())
+    WITH CHECK (public.is_planner());
+
+CREATE POLICY "Project memberships delete by planner"
+    ON public.project_memberships FOR DELETE
+    TO authenticated
+    USING (public.is_planner());
+
+-- SCHEDULE_PLAN: Scoped to authorized projects; only planners can insert/update/delete
+CREATE POLICY "Schedule plan read by authorized project members"
     ON public.schedule_plan FOR SELECT
     TO authenticated
-    USING (true);
+    USING (public.has_project_access(project_id));
 
 CREATE POLICY "Schedule plan insert by planner"
     ON public.schedule_plan FOR INSERT
     TO authenticated
-    WITH CHECK (public.is_planner());
+    WITH CHECK (public.is_planner() AND public.has_project_access(project_id));
 
 CREATE POLICY "Schedule plan update by planner"
     ON public.schedule_plan FOR UPDATE
     TO authenticated
-    USING (public.is_planner());
+    USING (public.is_planner() AND public.has_project_access(project_id))
+    WITH CHECK (public.is_planner() AND public.has_project_access(project_id));
 
 CREATE POLICY "Schedule plan delete by planner"
     ON public.schedule_plan FOR DELETE
     TO authenticated
-    USING (public.is_planner());
+    USING (public.is_planner() AND public.has_project_access(project_id));
 
--- EXTRACTIONS: Authenticated can read and insert
-CREATE POLICY "Extractions read by authenticated"
+-- EXTRACTIONS: Scoped to authorized project members and job uploader
+CREATE POLICY "Extractions read by authorized project members"
     ON public.extractions FOR SELECT
     TO authenticated
-    USING (true);
+    USING (public.has_project_access(project_id) OR uploaded_by = auth.uid());
 
 CREATE POLICY "Extractions insert by authenticated"
     ON public.extractions FOR INSERT
     TO authenticated
-    WITH CHECK (auth.uid() IS NOT NULL);
+    WITH CHECK (auth.uid() IS NOT NULL AND public.has_project_access(project_id));
 
--- EXTRACTED_ACTIVITIES: Authenticated can read
-CREATE POLICY "Extracted activities read by authenticated"
+-- EXTRACTED_ACTIVITIES: Scoped through parent extraction
+CREATE POLICY "Extracted activities read by authorized project members"
     ON public.extracted_activities FOR SELECT
     TO authenticated
-    USING (true);
+    USING (EXISTS (
+        SELECT 1 FROM public.extractions e
+        WHERE e.id = extraction_id AND (public.has_project_access(e.project_id) OR e.uploaded_by = auth.uid())
+    ));
 
--- SCHEDULE_MATCHES: Authenticated can read; only planners can update (confirm/reject)
-CREATE POLICY "Schedule matches read by authenticated"
+-- SCHEDULE_MATCHES: Scoped through associated schedule plan project
+CREATE POLICY "Schedule matches read by authorized project members"
     ON public.schedule_matches FOR SELECT
     TO authenticated
-    USING (true);
+    USING (EXISTS (
+        SELECT 1 FROM public.schedule_plan p
+        WHERE p.id = plan_activity_id AND public.has_project_access(p.project_id)
+    ));
 
 CREATE POLICY "Schedule matches update by planner"
     ON public.schedule_matches FOR UPDATE
     TO authenticated
-    USING (public.is_planner());
+    USING (public.is_planner() AND EXISTS (
+        SELECT 1 FROM public.schedule_plan p
+        WHERE p.id = plan_activity_id AND public.has_project_access(p.project_id)
+    ))
+    WITH CHECK (public.is_planner() AND EXISTS (
+        SELECT 1 FROM public.schedule_plan p
+        WHERE p.id = plan_activity_id AND public.has_project_access(p.project_id)
+    ));
 
--- UNMATCHED_ACTIVITIES: Authenticated can read; only planners can update
-CREATE POLICY "Unmatched activities read by authenticated"
+-- UNMATCHED_ACTIVITIES: Scoped through extracted activities / extractions
+CREATE POLICY "Unmatched activities read by authorized project members"
     ON public.unmatched_activities FOR SELECT
     TO authenticated
-    USING (true);
+    USING (EXISTS (
+        SELECT 1 FROM public.extracted_activities ea
+        JOIN public.extractions e ON e.id = ea.extraction_id
+        WHERE ea.id = extracted_activity_id AND (public.has_project_access(e.project_id) OR e.uploaded_by = auth.uid())
+    ));
 
 CREATE POLICY "Unmatched activities update by planner"
     ON public.unmatched_activities FOR UPDATE
     TO authenticated
-    USING (public.is_planner());
+    USING (public.is_planner() AND EXISTS (
+        SELECT 1 FROM public.extracted_activities ea
+        JOIN public.extractions e ON e.id = ea.extraction_id
+        WHERE ea.id = extracted_activity_id AND (public.has_project_access(e.project_id) OR e.uploaded_by = auth.uid())
+    ));
 
 -- AUDIT_TRAIL: Authenticated can read; authenticated can insert (for manual links); NO UPDATE; NO DELETE (append-only)
 CREATE POLICY "Audit trail read by authenticated"

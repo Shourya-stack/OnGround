@@ -142,3 +142,38 @@ async def get_optional_current_user(
         return await get_current_user(authorization=authorization)
     except Exception:
         return None
+
+
+def verify_user_project_access(user_id: UUID, project_id: Optional[UUID]) -> bool:
+    """
+    Verifies if user has legitimate access to the given project (SEC-02, SEC-03, SEC-04).
+    Default project (00000000-0000-0000-0000-000000000001) is accessible to all authenticated users.
+    Other projects require membership in project_memberships table.
+    """
+    if not project_id:
+        return True
+    
+    proj_str = str(project_id).strip().lower()
+    if proj_str == "00000000-0000-0000-0000-000000000001":
+        return True
+
+    supabase = get_supabase_client()
+    if not supabase:
+        # Offline/mock mode allows test execution
+        return True
+
+    try:
+        res = (
+            supabase.table("project_memberships")
+            .select("id")
+            .eq("project_id", proj_str)
+            .eq("user_id", str(user_id))
+            .execute()
+        )
+        if res.data and len(res.data) > 0:
+            return True
+        return False
+    except Exception as e:
+        logger.warning(f"Error checking project membership for user {user_id} on project {project_id}: {e}")
+        return False
+

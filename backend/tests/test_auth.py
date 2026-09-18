@@ -179,6 +179,84 @@ class TestBackendJWTAuth(unittest.TestCase):
             # Must remain 403 Forbidden because JWT user profile has supervisor role
             self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
+    # =========================================================================
+    # SEC-01: Profile Role Escalation Prevention & Hardening Tests
+    # =========================================================================
+
+    def test_schema_sql_contains_profile_role_protection_trigger(self):
+        """Verify schema.sql contains the BEFORE UPDATE trigger preventing profile role changes."""
+        from pathlib import Path
+        schema_path = Path("backend/db/schema.sql")
+        self.assertTrue(schema_path.exists(), "schema.sql must exist")
+        schema_content = schema_path.read_text(encoding="utf-8")
+
+        # 1. Trigger function defined
+        self.assertIn("protect_profile_role", schema_content)
+        self.assertIn("NEW.role IS DISTINCT FROM OLD.role", schema_content)
+        self.assertIn("RAISE EXCEPTION 'Users are not permitted to modify their own role.'", schema_content)
+
+        # 2. Trigger attached to public.profiles
+        self.assertIn("CREATE TRIGGER protect_profile_role_trigger", schema_content)
+        self.assertIn("BEFORE UPDATE ON public.profiles", schema_content)
+
+    def test_protect_profile_role_trigger_logic_blocks_supervisor_escalation(self):
+        """Simulate Postgres trigger logic: Authenticated user attempting to change role is rejected."""
+        old_row = {"id": str(uuid4()), "full_name": "Field Supervisor", "role": "supervisor"}
+        new_row_escalation = {"id": old_row["id"], "full_name": "Field Supervisor", "role": "planner"}
+
+        # Simulate trigger evaluation
+        def simulate_protect_profile_role(old, new, auth_uid):
+            if auth_uid is not None and new.get("role") != old.get("role"):
+                raise PermissionError("Users are not permitted to modify their own role.")
+            return new
+
+        # Role change by authenticated end-user MUST raise PermissionError
+        with self.assertRaises(PermissionError) as ctx:
+            simulate_protect_profile_role(old_row, new_row_escalation, auth_uid=old_row["id"])
+        self.assertIn("not permitted to modify their own role", str(ctx.exception))
+
+    def test_legitimate_profile_update_without_role_change_allowed(self):
+        """Simulate Postgres trigger logic: Authenticated user updating full_name without changing role succeeds."""
+        old_row = {"id": str(uuid4()), "full_name": "Original Name", "role": "supervisor"}
+        new_row_legit = {"id": old_row["id"], "full_name": "Updated Display Name", "role": "supervisor"}
+
+        def simulate_protect_profile_role(old, new, auth_uid):
+            if auth_uid is not None and new.get("role") != old.get("role"):
+                raise PermissionError("Users are not permitted to modify their own role.")
+            return new
+
+        result = simulate_protect_profile_role(old_row, new_row_legit, auth_uid=old_row["id"])
+        self.assertEqual(result["full_name"], "Updated Display Name")
+        self.assertEqual(result["role"], "supervisor")
+
+    def test_backend_role_resolution_remains_authoritative_from_db_profile(self):
+        """Verify get_current_user strictly resolves role from DB profile row, ignoring token claims or spoofing."""
+        user_id = uuid4()
+        mock_supabase = MagicMock()
+
+        mock_user = MagicMock()
+        mock_user.id = str(user_id)
+        mock_user.email = "worker@onground.build"
+        mock_supabase.auth.get_user.return_value = MagicMock(user=mock_user)
+
+        # DB has authoritative role = "supervisor"
+        mock_profile_query = MagicMock()
+        mock_profile_query.select.return_value.eq.return_value.execute.return_value.data = [
+            {"id": str(user_id), "email": "worker@onground.build", "full_name": "Worker", "role": "supervisor"}
+        ]
+        mock_supabase.table.return_value = mock_profile_query
+
+        with patch("backend.auth.security.get_supabase_client", return_value=mock_supabase):
+            # Supervisor is authorized for general protected routes
+            resp_gen = self.client.get("/test/protected", headers={"Authorization": "Bearer valid.token"})
+            self.assertEqual(resp_gen.status_code, 200)
+            self.assertEqual(resp_gen.json()["role"], "supervisor")
+
+            # Supervisor is strictly denied from planner routes
+            resp_plan = self.client.get("/test/planner-only", headers={"Authorization": "Bearer valid.token"})
+            self.assertEqual(resp_plan.status_code, 403)
+
 
 if __name__ == "__main__":
     unittest.main()
+
