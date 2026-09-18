@@ -35,6 +35,100 @@ def get_embedding_model():
 
 
 import math
+from datetime import date, datetime
+
+
+def _normalize_to_date(val: Any) -> Optional[date]:
+    """Safely normalizes date, datetime, or date-like strings to a datetime.date object."""
+    if val is None:
+        return None
+    if isinstance(val, datetime):
+        return val.date()
+    if isinstance(val, date):
+        return val
+    if isinstance(val, str):
+        val_str = val.strip()
+        if not val_str:
+            return None
+        # Fast path for ISO date prefixes (YYYY-MM-DD)
+        if len(val_str) >= 10 and val_str[4] == '-' and val_str[7] == '-':
+            try:
+                return datetime.strptime(val_str[:10], "%Y-%m-%d").date()
+            except ValueError:
+                pass
+        for fmt in ("%Y-%m-%d", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S", "%d/%m/%Y", "%m/%d/%Y"):
+            try:
+                return datetime.strptime(val_str, fmt).date()
+            except ValueError:
+                continue
+        try:
+            import dateparser
+            parsed = dateparser.parse(val_str)
+            if parsed:
+                return parsed.date()
+        except Exception:
+            pass
+    return None
+
+
+def calculate_date_proximity(
+    extracted_start: Any = None,
+    extracted_end: Any = None,
+    plan_start: Any = None,
+    plan_end: Any = None,
+) -> float:
+    """
+    Computes normalized temporal proximity [0.0, 1.0] between extracted activity dates
+    and baseline schedule planned date window.
+
+    Semantics:
+    - Neutral baseline (1.0) when either range is completely missing (non-punitive).
+    - 1.0 if windows overlap or occur on the exact same date.
+    - Smooth exponential decay exp(-gap_days / 30.0) for disjoint dates.
+    - Clamped strictly within [0.0, 1.0].
+    """
+    e_start = _normalize_to_date(extracted_start)
+    e_end = _normalize_to_date(extracted_end)
+    p_start = _normalize_to_date(plan_start)
+    p_end = _normalize_to_date(plan_end)
+
+    # If extracted dates or planned dates are missing entirely, return neutral 1.0
+    if (e_start is None and e_end is None) or (p_start is None and p_end is None):
+        return 1.0
+
+    # Fill single-sided bounds
+    if e_start is None:
+        e_start = e_end
+    if e_end is None:
+        e_end = e_start
+    if p_start is None:
+        p_start = p_end
+    if p_end is None:
+        p_end = p_start
+
+    # Handle reversed / inverted ranges safely
+    if e_start > e_end:
+        e_start, e_end = e_end, e_start
+    if p_start > p_end:
+        p_start, p_end = p_end, p_start
+
+    # Overlap check
+    if max(e_start, p_start) <= min(e_end, p_end):
+        return 1.0
+
+    # Calculate gap in days
+    if e_end < p_start:
+        gap_days = (p_start - e_end).days
+    else:
+        gap_days = (e_start - p_end).days
+
+    if gap_days <= 0:
+        return 1.0
+
+    # Exponential decay over 30-day half-decay scale
+    proximity = math.exp(-float(gap_days) / 30.0)
+    return max(0.0, min(1.0, round(proximity, 4)))
+
 
 def compute_similarity(text1: str, text2: str, model=None) -> float:
     """Computes cosine similarity between two activity descriptions."""
@@ -162,12 +256,18 @@ class MatchingService:
 
         for plan in plan_activities:
             sim = compute_similarity(activity_description, plan["activity_description"], self.model)
+            date_prox = calculate_date_proximity(
+                extracted_start=start_time,
+                extracted_end=end_time,
+                plan_start=plan.get("planned_start"),
+                plan_end=plan.get("planned_end"),
+            )
             score = calculate_match_score(
                 embedding_sim=sim,
                 extraction_confidence=extraction_confidence,
                 extracted_discipline=discipline,
                 plan_discipline=plan.get("discipline", "unknown"),
-                date_proximity_factor=1.0,
+                date_proximity_factor=date_prox,
             )
             candidates.append((plan, score, sim))
 

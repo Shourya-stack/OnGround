@@ -196,6 +196,8 @@ async def match_activity(
         activity_description=activity_data["activity_description"],
         discipline=activity_data.get("discipline", "unknown"),
         extraction_confidence=activity_data.get("extraction_confidence", 0.70),
+        start_time=activity_data.get("start_time"),
+        end_time=activity_data.get("end_time"),
         actor_id=current_user.id,
     )
 
