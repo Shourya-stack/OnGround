@@ -62,7 +62,7 @@ export const ReviewPage: React.FC = () => {
   const handleSelectAlternative = async (cand: CandidateMatch) => {
     if (!currentMatch) return;
     try {
-      await apiClient.confirmMatch(currentMatch.id);
+      await apiClient.reassignMatch(currentMatch.id, cand.plan_activity_id);
       setToast({
         id: Date.now().toString(),
         type: 'success',

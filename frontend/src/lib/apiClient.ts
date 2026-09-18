@@ -8,7 +8,9 @@ import { supabase } from './supabaseClient';
 import {
   SchedulePlanItem,
   ExtractionRecord,
+  ExtractedActivity,
   ScheduleMatch,
+  MatchResult,
   UnmatchedActivity,
   AuditTrailEntry,
   AnalyticsOut,
@@ -175,17 +177,11 @@ export const apiClient = {
 
   async uploadReport(
     file: File,
-    projectId?: string,
-    fileType?: string
+    _projectId?: string,
+    _fileType?: string
   ): Promise<{ extraction_id: string; file_url: string; status: string }> {
     const formData = new FormData();
     formData.append('file', file);
-    if (projectId) {
-      formData.append('project_id', projectId);
-    }
-    if (fileType) {
-      formData.append('file_type', fileType);
-    }
 
     return apiRequest<{ extraction_id: string; file_url: string; status: string }>(
       '/upload',
@@ -196,12 +192,11 @@ export const apiClient = {
     );
   },
 
-
   async triggerExtraction(
     extractionId: string,
     rawText?: string
-  ): Promise<{ extraction_id: string; activities_count: number; activities: any[]; status: string }> {
-    return apiRequest(
+  ): Promise<{ extraction_id: string; activities_count: number; activities: ExtractedActivity[]; status: string }> {
+    return apiRequest<{ extraction_id: string; activities_count: number; activities: ExtractedActivity[]; status: string }>(
       `/extract/${extractionId}`,
       {
         method: 'POST',
@@ -245,8 +240,8 @@ export const apiClient = {
     return apiRequest<UnmatchedActivity[]>(`/unmatched${qs ? `?${qs}` : ''}`);
   },
 
-  async triggerMatch(extractedActivityId: string): Promise<any> {
-    return apiRequest(
+  async triggerMatch(extractedActivityId: string): Promise<MatchResult> {
+    return apiRequest<MatchResult>(
       `/match/${extractedActivityId}`,
       {
         method: 'POST',

@@ -108,7 +108,7 @@ export const UploadStatusCard: React.FC<UploadStatusCardProps> = ({
               Successfully Processed!
             </div>
             <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-              Extracted {extractedCount} activities • Created {matchedCount} schedule matches
+              Extracted {extractedCount} activities{matchedCount > 0 ? ` • Created ${matchedCount} schedule matches` : ' • Ingestion & extraction complete'}
             </div>
           </div>
           <div style={{ display: 'flex', gap: '0.75rem' }}>

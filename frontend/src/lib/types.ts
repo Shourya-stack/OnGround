@@ -63,6 +63,16 @@ export interface ExtractedActivity {
 }
 
 export type MatchStatus = 'auto_linked' | 'pending_review' | 'confirmed' | 'rejected';
+export type MatchResultStatus = 'auto_linked' | 'pending_review' | 'unmatched';
+
+export interface MatchResult {
+  status: MatchResultStatus;
+  extracted_activity_id: string;
+  match_id?: string | null;
+  plan_activity_id?: string | null;
+  confidence_score?: number | null;
+  candidates?: CandidateMatch[] | null;
+}
 
 export interface CandidateMatch {
   plan_activity_id: string;

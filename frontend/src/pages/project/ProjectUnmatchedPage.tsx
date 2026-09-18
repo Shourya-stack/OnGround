@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
 import {
   Search,
   Link2,
   CheckCircle2,
+  RefreshCw,
+  Info,
 } from 'lucide-react';
-import { apiService } from '../../api/apiService';
+import { apiClient } from '../../lib/apiClient';
 import { UnmatchedActivity, SchedulePlanItem } from '../../lib/types';
 import { LoadingSkeleton } from '../../components/common/LoadingSkeleton';
 import { EmptyState } from '../../components/common/EmptyState';
@@ -14,9 +15,6 @@ import { Toast, ToastMessage } from '../../components/common/Toast';
 import { Modal } from '../../components/ui/Modal';
 
 export const ProjectUnmatchedPage: React.FC = () => {
-  const { id } = useParams<{ id: string }>();
-  const projectId = id || 'proj-01';
-
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [unmatched, setUnmatched] = useState<UnmatchedActivity[]>([]);
@@ -31,14 +29,14 @@ export const ProjectUnmatchedPage: React.FC = () => {
     setError(null);
     try {
       const [unData, schedData] = await Promise.all([
-        apiService.getUnmatched(projectId),
-        apiService.getSchedule(projectId),
+        apiClient.getUnmatched(),
+        apiClient.getSchedule(),
       ]);
-      setUnmatched(unData);
-      setSchedule(schedData);
+      setUnmatched(unData || []);
+      setSchedule(schedData || []);
     } catch (err: any) {
-      console.error('Failed to load unmatched activities', err);
-      setError(err?.message || 'Failed to load unmatched activities.');
+      console.error('Failed to load unmatched activities from API', err);
+      setError(err?.message || 'Failed to load unmatched activities from backend.');
     } finally {
       setLoading(false);
     }
@@ -46,28 +44,28 @@ export const ProjectUnmatchedPage: React.FC = () => {
 
   useEffect(() => {
     loadData();
-  }, [projectId]);
+  }, []);
 
-  const handleManualLink = async (targetPlanId: string) => {
-    if (!linkingTarget) return;
-    try {
-      await apiService.resolveUnmatched(linkingTarget.id, targetPlanId);
-      setToast({
-        id: Date.now().toString(),
-        type: 'success',
-        title: 'Manually Linked',
-        message: 'Activity successfully attached to baseline schedule node.',
-      });
-      setLinkingTarget(null);
-      loadData();
-    } catch (err: any) {
-      setToast({ id: Date.now().toString(), type: 'error', title: 'Error', message: err.message });
-    }
+  const handleManualLinkClick = (record: UnmatchedActivity) => {
+    setLinkingTarget(record);
+  };
+
+  const handleAttemptLink = (_targetPlanId: string) => {
+    setToast({
+      id: Date.now().toString(),
+      type: 'info',
+      title: 'Action Not Available',
+      message: 'Unmatched activity resolution mutation is not supported by the Phase 1 backend API (read-only pool).',
+    });
+    setLinkingTarget(null);
   };
 
   const filtered = unmatched.filter((u) => {
     const term = search.toLowerCase();
-    return u.extracted_activity?.activity_description.toLowerCase().includes(term);
+    const desc = (u.extracted_activity?.activity_description || '').toLowerCase();
+    const disc = (u.extracted_activity?.discipline || '').toLowerCase();
+    const loc = (u.extracted_activity?.location_reference || '').toLowerCase();
+    return desc.includes(term) || disc.includes(term) || loc.includes(term) || u.id.toLowerCase().includes(term);
   });
 
   const filteredSchedule = schedule.filter((s) => {
@@ -82,13 +80,25 @@ export const ProjectUnmatchedPage: React.FC = () => {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
       {/* Header */}
-      <div>
-        <h1 style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>
-          Unmatched Activities Pool
-        </h1>
-        <p style={{ color: 'var(--text-muted)', fontSize: '14px', marginTop: '4px' }}>
-          Site progress items scoring below the 70% confidence threshold. Resolve manually or investigate for scope additions.
-        </p>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+        <div>
+          <h1 style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>
+            Unmatched Activities Pool
+          </h1>
+          <p style={{ color: 'var(--text-muted)', fontSize: '14px', marginTop: '4px' }}>
+            Site progress items scoring below the 70% confidence threshold that could not be automatically linked to baseline schedule activities.
+          </p>
+        </div>
+
+        <button
+          type="button"
+          className="btn btn-secondary"
+          onClick={loadData}
+          disabled={loading}
+          title="Refresh unmatched activities"
+        >
+          <RefreshCw size={14} className={loading ? 'spin' : ''} /> Refresh
+        </button>
       </div>
 
       {/* Filter Bar */}
@@ -132,7 +142,8 @@ export const ProjectUnmatchedPage: React.FC = () => {
               <tr>
                 <th>Unmatched Activity Description</th>
                 <th style={{ width: '140px' }}>Discipline</th>
-                <th style={{ width: '160px' }}>Best Similarity</th>
+                <th style={{ width: '150px' }}>Best Score</th>
+                <th style={{ width: '150px' }}>Resolution</th>
                 <th style={{ width: '220px' }}>System Reason</th>
                 <th style={{ width: '140px', textAlign: 'right' }}>Action</th>
               </tr>
@@ -142,10 +153,13 @@ export const ProjectUnmatchedPage: React.FC = () => {
                 <tr key={u.id}>
                   <td>
                     <div style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '13.5px' }}>
-                      {u.extracted_activity?.activity_description}
+                      {u.extracted_activity?.activity_description || 'Unspecified activity'}
                     </div>
-                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                      Report ID: {u.extracted_activity?.extraction_id}
+                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px', display: 'flex', gap: '8px' }}>
+                      <span>Extraction ID: {u.extracted_activity_id ? `${u.extracted_activity_id.slice(0, 8)}...` : '—'}</span>
+                      {u.extracted_activity?.location_reference && (
+                        <span>• Loc: {u.extracted_activity.location_reference}</span>
+                      )}
                     </div>
                   </td>
                   <td>
@@ -160,24 +174,44 @@ export const ProjectUnmatchedPage: React.FC = () => {
                         textTransform: 'capitalize',
                       }}
                     >
-                      {u.extracted_activity?.discipline}
+                      {u.extracted_activity?.discipline || 'unknown'}
                     </span>
                   </td>
                   <td>
                     <span className="confidence-badge low">
-                      {((u.best_score || 0.5) * 100).toFixed(1)}%
+                      {u.best_score !== null && u.best_score !== undefined
+                        ? `${(u.best_score * 100).toFixed(1)}%`
+                        : 'N/A'}
+                    </span>
+                  </td>
+                  <td>
+                    <span
+                      style={{
+                        fontSize: '11px',
+                        fontWeight: 600,
+                        padding: '2px 6px',
+                        borderRadius: '4px',
+                        backgroundColor: 'var(--bg-surface)',
+                        color: 'var(--text-secondary)',
+                        textTransform: 'capitalize',
+                      }}
+                    >
+                      {u.resolution.replace(/_/g, ' ')}
                     </span>
                   </td>
                   <td style={{ fontSize: '12.5px', color: 'var(--text-muted)' }}>
-                    Below minimum 70.0% matching threshold
+                    {u.best_score !== null && u.best_score !== undefined
+                      ? `Top score ${(u.best_score * 100).toFixed(0)}% below 70% threshold`
+                      : 'No candidate schedule match found'}
                   </td>
                   <td style={{ textAlign: 'right' }}>
                     <button
                       type="button"
-                      className="btn btn-primary btn-sm"
-                      onClick={() => setLinkingTarget(u)}
+                      className="btn btn-secondary btn-sm"
+                      onClick={() => handleManualLinkClick(u)}
+                      title="Inspect candidate links"
                     >
-                      <Link2 size={13} /> Manual Link
+                      <Link2 size={13} /> Link
                     </button>
                   </td>
                 </tr>
@@ -187,12 +221,12 @@ export const ProjectUnmatchedPage: React.FC = () => {
         </div>
       )}
 
-      {/* Manual Link Modal */}
+      {/* Manual Link / Inspection Modal */}
       {linkingTarget && (
         <Modal
           isOpen={!!linkingTarget}
           onClose={() => setLinkingTarget(null)}
-          title="Manual Schedule Linking"
+          title="Schedule Baseline Linking"
           maxWidth="680px"
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
@@ -201,8 +235,18 @@ export const ProjectUnmatchedPage: React.FC = () => {
                 Unmatched Task
               </span>
               <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>
-                {linkingTarget.extracted_activity?.activity_description}
+                {linkingTarget.extracted_activity?.activity_description || 'Unspecified activity'}
               </div>
+              <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                Discipline: {linkingTarget.extracted_activity?.discipline || 'unknown'} • Resolution: {linkingTarget.resolution}
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px', borderRadius: 'var(--radius-sm)', backgroundColor: 'rgba(59, 130, 246, 0.08)', border: '1px solid rgba(59, 130, 246, 0.2)', fontSize: '12px', color: 'var(--text-secondary)' }}>
+              <Info size={15} style={{ color: 'var(--accent-blue)', flexShrink: 0 }} />
+              <span>
+                Baseline schedule activities available for reference. Unmatched activity mutation endpoint is not active in Phase 1 API.
+              </span>
             </div>
 
             <div style={{ position: 'relative' }}>
@@ -217,7 +261,7 @@ export const ProjectUnmatchedPage: React.FC = () => {
               />
             </div>
 
-            <div style={{ maxHeight: '280px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <div style={{ maxHeight: '240px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {filteredSchedule.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '32px 16px', color: 'var(--text-muted)', fontSize: '13px' }}>
                   No master schedule activities match "{scheduleSearch}".
@@ -263,9 +307,9 @@ export const ProjectUnmatchedPage: React.FC = () => {
                     <button
                       type="button"
                       className="btn btn-secondary btn-sm"
-                      onClick={() => handleManualLink(item.id)}
+                      onClick={() => handleAttemptLink(item.id)}
                     >
-                      Link
+                      Select
                     </button>
                   </div>
                 ))
@@ -274,7 +318,7 @@ export const ProjectUnmatchedPage: React.FC = () => {
           </div>
           <div className="modal-footer">
             <button type="button" className="btn btn-secondary" onClick={() => setLinkingTarget(null)}>
-              Cancel
+              Close
             </button>
           </div>
         </Modal>

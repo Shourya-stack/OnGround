@@ -8,10 +8,12 @@ import {
   ChevronRight,
   Search,
   ListPlus,
+  Loader2,
 } from 'lucide-react';
-import { apiService } from '../../api/apiService';
+import { apiClient, ApiError } from '../../lib/apiClient';
 import { ScheduleMatch, CandidateMatch, SchedulePlanItem } from '../../lib/types';
 import { LoadingSkeleton } from '../../components/common/LoadingSkeleton';
+import { ErrorState } from '../../components/common/ErrorState';
 import { Toast, ToastMessage } from '../../components/common/Toast';
 import { Modal } from '../../components/ui/Modal';
 
@@ -20,6 +22,8 @@ export const ProjectReviewPage: React.FC = () => {
   const projectId = id || 'proj-01';
 
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [reviewMatches, setReviewMatches] = useState<ScheduleMatch[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [toast, setToast] = useState<ToastMessage | null>(null);
@@ -31,25 +35,31 @@ export const ProjectReviewPage: React.FC = () => {
 
   const loadReviewQueue = async () => {
     setLoading(true);
+    setError(null);
     try {
-      const [data, sched] = await Promise.all([
-        apiService.getMatches(projectId, 'pending_review'),
-        apiService.getSchedule(projectId),
+      const [matchesData, schedData] = await Promise.all([
+        apiClient.getMatches({ status: 'pending_review' }),
+        apiClient.getSchedule(),
       ]);
-      setReviewMatches(data);
-      setAllSchedule(sched);
+      setReviewMatches(matchesData);
+      setAllSchedule(schedData);
       if (matchId) {
-        const found = data.findIndex((m) => m.id === matchId);
+        const found = matchesData.findIndex((m) => m.id === matchId);
         if (found !== -1) {
           setSelectedIndex(found);
         } else {
-          setSelectedIndex((prev) => Math.min(prev, Math.max(0, data.length - 1)));
+          setSelectedIndex((prev) => Math.min(prev, Math.max(0, matchesData.length - 1)));
         }
       } else {
-        setSelectedIndex((prev) => Math.min(prev, Math.max(0, data.length - 1)));
+        setSelectedIndex((prev) => Math.min(prev, Math.max(0, matchesData.length - 1)));
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to load review queue', err);
+      const message =
+        err instanceof ApiError
+          ? err.message
+          : err?.message || 'Failed to load review items from backend.';
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -63,55 +73,79 @@ export const ProjectReviewPage: React.FC = () => {
   const current = reviewMatches[safeIndex];
 
   const handleConfirm = async () => {
-    if (!current) return;
+    if (!current || isSubmitting) return;
+    setIsSubmitting(true);
     try {
-      await apiService.confirmMatch(current.id);
+      await apiClient.confirmMatch(current.id);
       setToast({
         id: Date.now().toString(),
         type: 'success',
         title: 'Match Confirmed',
-        message: `Linked "${current.extracted_activity?.activity_description.slice(0, 30)}..." to ${current.schedule_plan?.activity_code}.`,
+        message: `Linked "${current.extracted_activity?.activity_description.slice(0, 30) || 'activity'}..." to ${current.schedule_plan?.activity_code || 'baseline plan'}.`,
       });
-      loadReviewQueue();
+      await loadReviewQueue();
     } catch (err: any) {
-      setToast({ id: Date.now().toString(), type: 'error', title: 'Error', message: err.message });
+      console.error('Failed to confirm match', err);
+      const message =
+        err instanceof ApiError
+          ? err.message
+          : err?.message || 'Failed to confirm match.';
+      setToast({ id: Date.now().toString(), type: 'error', title: 'Confirmation Failed', message });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const handleReject = async () => {
-    if (!current) return;
+    if (!current || isSubmitting) return;
+    setIsSubmitting(true);
     try {
-      await apiService.rejectMatch(current.id);
+      await apiClient.rejectMatch(current.id);
       setToast({
         id: Date.now().toString(),
         type: 'info',
         title: 'Match Rejected',
         message: 'Activity sent to the unmatched reconciliation pool.',
       });
-      loadReviewQueue();
+      await loadReviewQueue();
     } catch (err: any) {
-      setToast({ id: Date.now().toString(), type: 'error', title: 'Error', message: err.message });
+      console.error('Failed to reject match', err);
+      const message =
+        err instanceof ApiError
+          ? err.message
+          : err?.message || 'Failed to reject match.';
+      setToast({ id: Date.now().toString(), type: 'error', title: 'Rejection Failed', message });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const handleChooseAlternative = async (candidate: CandidateMatch) => {
-    if (!current) return;
+    if (!current || isSubmitting) return;
+    setIsSubmitting(true);
     try {
-      await apiService.reassignMatch(current.id, candidate);
+      await apiClient.reassignMatch(current.id, candidate.plan_activity_id);
       setToast({
         id: Date.now().toString(),
         type: 'success',
         title: 'Activity Reassigned & Confirmed',
         message: `Successfully linked to baseline task #${candidate.activity_code}.`,
       });
-      loadReviewQueue();
+      await loadReviewQueue();
     } catch (err: any) {
-      setToast({ id: Date.now().toString(), type: 'error', title: 'Error', message: err.message });
+      console.error('Failed to reassign match', err);
+      const message =
+        err instanceof ApiError
+          ? err.message
+          : err?.message || 'Failed to reassign match.';
+      setToast({ id: Date.now().toString(), type: 'error', title: 'Reassignment Failed', message });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const handleChooseFromMasterSchedule = async (item: SchedulePlanItem) => {
-    if (!current) return;
+    if (!current || isSubmitting) return;
     setShowScheduleModal(false);
     const candidate: CandidateMatch = {
       plan_activity_id: item.id,
@@ -178,6 +212,8 @@ export const ProjectReviewPage: React.FC = () => {
 
       {loading ? (
         <LoadingSkeleton rows={4} height="80px" />
+      ) : error ? (
+        <ErrorState message={error} onRetry={loadReviewQueue} />
       ) : reviewMatches.length === 0 ? (
         <div className="glass-card" style={{ textAlign: 'center', padding: '60px 20px' }}>
           <CheckCircle2 size={48} style={{ color: 'var(--confidence-high)', margin: '0 auto 16px' }} />
@@ -210,7 +246,7 @@ export const ProjectReviewPage: React.FC = () => {
                 <button
                   type="button"
                   className="btn btn-secondary btn-sm"
-                  disabled={safeIndex === 0}
+                  disabled={safeIndex === 0 || isSubmitting}
                   onClick={() => setSelectedIndex((prev) => Math.max(0, prev - 1))}
                 >
                   <ChevronLeft size={14} /> Previous
@@ -218,7 +254,7 @@ export const ProjectReviewPage: React.FC = () => {
                 <button
                   type="button"
                   className="btn btn-secondary btn-sm"
-                  disabled={safeIndex >= reviewMatches.length - 1}
+                  disabled={safeIndex >= reviewMatches.length - 1 || isSubmitting}
                   onClick={() => setSelectedIndex((prev) => Math.min(reviewMatches.length - 1, prev + 1))}
                 >
                   Next <ChevronRight size={14} />
@@ -304,13 +340,15 @@ export const ProjectReviewPage: React.FC = () => {
                   type="button"
                   className="btn btn-primary btn-lg"
                   style={{ flex: 1 }}
+                  disabled={isSubmitting}
                   onClick={handleConfirm}
                 >
-                  <CheckCircle2 size={18} /> Confirm This Match
+                  {isSubmitting ? <Loader2 size={18} className="animate-spin" /> : <CheckCircle2 size={18} />} Confirm This Match
                 </button>
                 <button
                   type="button"
                   className="btn btn-secondary btn-lg"
+                  disabled={isSubmitting}
                   onClick={() => setShowScheduleModal(true)}
                   title="Choose from all schedule activities"
                 >
@@ -319,6 +357,7 @@ export const ProjectReviewPage: React.FC = () => {
                 <button
                   type="button"
                   className="btn btn-danger btn-lg"
+                  disabled={isSubmitting}
                   onClick={handleReject}
                 >
                   <XCircle size={18} /> Reject Match
@@ -400,6 +439,7 @@ export const ProjectReviewPage: React.FC = () => {
                         type="button"
                         className="btn btn-secondary btn-sm"
                         style={{ width: '100%', marginTop: '4px' }}
+                        disabled={isSubmitting}
                         onClick={() => handleChooseAlternative(cand)}
                       >
                         Choose This Target

@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { UploadDropzone } from '../../components/upload/UploadDropzone';
 import { UploadStatusCard, PipelineStep } from '../../components/upload/UploadStatusCard';
-import { apiService } from '../../api/apiService';
+import { apiClient, ApiError } from '../../lib/apiClient';
+import { ExtractedActivity, MatchResult } from '../../lib/types';
 import { Toast, ToastMessage } from '../../components/common/Toast';
 import { ArrowLeft, Cpu } from 'lucide-react';
 
@@ -23,40 +24,89 @@ export const ProjectUploadPage: React.FC = () => {
     setErrorMessage(null);
 
     try {
-      // 1. Upload
-      await new Promise((res) => setTimeout(res, 600));
+      // 1. Upload report file to backend / Supabase Storage
+      const uploadRes = await apiClient.uploadReport(file);
+      const extractionId = uploadRes.extraction_id;
 
-      // 2. Extract
+      // 2. Trigger AI extraction pipeline
       setPipelineStep('extracting');
-      await new Promise((res) => setTimeout(res, 700));
-      setExtractedCount(4);
+      const extractRes = await apiClient.triggerExtraction(extractionId);
+      const activities: ExtractedActivity[] = extractRes.activities || [];
+      const count = extractRes.activities_count ?? activities.length ?? 0;
+      setExtractedCount(count);
 
-      // 3. Match
+      // If no activities were extracted, stop cleanly without matching
+      if (activities.length === 0) {
+        setMatchedCount(0);
+        setPipelineStep('completed');
+        setToast({
+          id: Date.now().toString(),
+          type: 'info',
+          title: 'Report Processed (No Activities)',
+          message: `Processed ${file.name}, but 0 physical construction activities were detected.`,
+        });
+        return;
+      }
+
+      // 3. Trigger matching for each real extracted activity
       setPipelineStep('matching');
-      await new Promise((res) => setTimeout(res, 700));
-      setMatchedCount(3);
+      const uniqueIds = Array.from(
+        new Set(activities.map((a) => a.id).filter(Boolean))
+      );
 
-      // 4. Complete
+      const matchResults: MatchResult[] = [];
+      const matchErrors: string[] = [];
+
+      for (const actId of uniqueIds) {
+        try {
+          const res = await apiClient.triggerMatch(actId);
+          matchResults.push(res);
+        } catch (err: any) {
+          console.error(`Matching failed for extracted activity ${actId}:`, err);
+          matchErrors.push(err?.message || `Match failed for activity ${actId}`);
+        }
+      }
+
+      if (matchResults.length === 0 && uniqueIds.length > 0) {
+        throw new Error(matchErrors[0] || 'Matching engine failed for all extracted activities.');
+      }
+
+      const autoLinked = matchResults.filter((m) => m.status === 'auto_linked').length;
+      const pendingReview = matchResults.filter((m) => m.status === 'pending_review').length;
+      const unmatched = matchResults.filter((m) => m.status === 'unmatched').length;
+      const totalProcessed = autoLinked + pendingReview;
+
+      setMatchedCount(totalProcessed);
       setPipelineStep('completed');
 
-      const fileExt = file.name.split('.').pop()?.toLowerCase() || 'pdf';
-      const fileType = (['pdf', 'docx', 'xlsx', 'csv', 'txt'].includes(fileExt) ? fileExt : 'pdf') as 'pdf' | 'docx' | 'xlsx' | 'csv' | 'txt';
+      const summaryParts: string[] = [];
+      if (autoLinked > 0) summaryParts.push(`${autoLinked} auto-linked`);
+      if (pendingReview > 0) summaryParts.push(`${pendingReview} pending review`);
+      if (unmatched > 0) summaryParts.push(`${unmatched} unmatched`);
+      if (matchErrors.length > 0) summaryParts.push(`${matchErrors.length} failed`);
 
-      await apiService.uploadReport(projectId, {
-        name: file.name,
-        size: `${(file.size / (1024 * 1024)).toFixed(1)} MB`,
-        type: fileType,
-      });
+      const summaryText = summaryParts.length > 0 ? ` (${summaryParts.join(', ')})` : '';
 
       setToast({
         id: Date.now().toString(),
-        type: 'success',
-        title: 'Report Processed Successfully',
-        message: `Extracted 4 activities and linked with baseline schedule.`,
+        type: matchErrors.length > 0 ? 'info' : 'success',
+        title: matchErrors.length > 0 ? 'Report Processed with Warnings' : 'Report Processed Successfully',
+        message: `Extracted ${count} activities${summaryText}.`,
       });
     } catch (err: any) {
+      console.error('Upload, extraction, or matching pipeline error:', err);
       setPipelineStep('failed');
-      setErrorMessage(err.message || 'Pipeline processing encountered an error.');
+      const message =
+        err instanceof ApiError
+          ? err.message
+          : err?.message || 'Report processing pipeline encountered an error.';
+      setErrorMessage(message);
+      setToast({
+        id: Date.now().toString(),
+        type: 'error',
+        title: 'Processing Failed',
+        message,
+      });
     }
   };
 

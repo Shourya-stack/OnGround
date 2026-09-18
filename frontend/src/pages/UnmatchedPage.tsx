@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { useUnmatched, UnmatchedActivityRecord } from '../hooks/useUnmatched';
+import { useUnmatched } from '../hooks/useUnmatched';
+import { UnmatchedActivity } from '../lib/types';
 import { DataTable, Column } from '../components/common/DataTable';
 import { ConfidenceBadge } from '../components/common/ConfidenceBadge';
 import { Link2 } from 'lucide-react';
-
 import { useAuth } from '../hooks/useAuth';
 import { Toast, ToastMessage } from '../components/common/Toast';
 
@@ -12,23 +12,23 @@ export const UnmatchedPage: React.FC = () => {
   const { data: unmatched, loading, error, refetch } = useUnmatched();
   const [toast, setToast] = useState<ToastMessage | null>(null);
 
-  const handleManualLink = (record: UnmatchedActivityRecord) => {
+  const handleManualLink = (record: UnmatchedActivity) => {
     setToast({
       id: Date.now().toString(),
       type: 'info',
-      title: 'Manual Linking Interface',
-      message: `Initiated link search for: "${record.extracted_activity?.activity_description.slice(0, 30)}..."`,
+      title: 'Action Not Available',
+      message: `Manual linking mutation endpoint is not supported by Phase 1 backend API for "${(record.extracted_activity?.activity_description || '').slice(0, 30)}..."`,
     });
   };
 
-  const columns: Column<UnmatchedActivityRecord>[] = [
+  const columns: Column<UnmatchedActivity>[] = [
     {
       key: 'description',
       header: 'Unmatched Activity Description',
       render: (item) => (
         <div>
           <div style={{ fontWeight: 500, color: 'var(--color-text)' }}>
-            {item.extracted_activity?.activity_description || 'N/A'}
+            {item.extracted_activity?.activity_description || 'Unspecified activity'}
           </div>
           <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '2px', display: 'flex', gap: '0.5rem' }}>
             <span style={{ textTransform: 'capitalize' }}>
@@ -46,7 +46,9 @@ export const UnmatchedPage: React.FC = () => {
       header: 'System Matching Reason',
       render: (item) => (
         <span style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>
-          {item.reason || 'Below confidence threshold 0.70'}
+          {item.best_score !== null && item.best_score !== undefined
+            ? `Top candidate score ${(item.best_score * 100).toFixed(0)}% below 70% threshold`
+            : 'No matching baseline candidates found'}
         </span>
       ),
     },
@@ -73,7 +75,7 @@ export const UnmatchedPage: React.FC = () => {
             onClick={() => handleManualLink(item)}
             style={{ fontSize: '0.8rem', padding: '0.35rem 0.75rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
           >
-            <Link2 size={13} /> Manual Link
+            <Link2 size={13} /> Link
           </button>
         ) : (
           <span style={{ color: 'var(--color-text-muted)', fontSize: '0.8rem' }}>View Only</span>
