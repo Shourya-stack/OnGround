@@ -4,7 +4,7 @@ import {
   User,
   RefreshCw,
 } from 'lucide-react';
-import { apiClient } from '../../lib/apiClient';
+import { apiClient, formatApiErrorMessage } from '../../lib/apiClient';
 import { AuditTrailEntry, ScheduleMatch } from '../../lib/types';
 import { LoadingSkeleton } from '../../components/common/LoadingSkeleton';
 import { EmptyState } from '../../components/common/EmptyState';
@@ -32,7 +32,7 @@ export const ProjectAuditPage: React.FC = () => {
       setMatches(matchData || []);
     } catch (err: any) {
       console.error('Failed to load audit trail from API', err);
-      setError(err?.message || 'Failed to load audit trail events from backend.');
+      setError(formatApiErrorMessage(err));
     } finally {
       setLoading(false);
     }

@@ -6,7 +6,7 @@ import {
   RefreshCw,
   Info,
 } from 'lucide-react';
-import { apiClient } from '../../lib/apiClient';
+import { apiClient, formatApiErrorMessage } from '../../lib/apiClient';
 import { UnmatchedActivity, SchedulePlanItem } from '../../lib/types';
 import { LoadingSkeleton } from '../../components/common/LoadingSkeleton';
 import { EmptyState } from '../../components/common/EmptyState';
@@ -36,7 +36,7 @@ export const ProjectUnmatchedPage: React.FC = () => {
       setSchedule(schedData || []);
     } catch (err: any) {
       console.error('Failed to load unmatched activities from API', err);
-      setError(err?.message || 'Failed to load unmatched activities from backend.');
+      setError(formatApiErrorMessage(err));
     } finally {
       setLoading(false);
     }

@@ -6,6 +6,7 @@ import React, { useState, useEffect } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabaseClient';
 import { UserRole, UserProfile } from '../lib/types';
+import { setUnauthorizedHandler } from '../lib/apiClient';
 import { AuthContext } from './useAuth';
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -16,6 +17,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
+    // 0. Register centralized 401 handling for API requests
+    setUnauthorizedHandler(async () => {
+      try {
+        await supabase.auth.signOut();
+      } catch {
+        // Safe swallow
+      }
+      setUser(null);
+      setSession(null);
+      setProfile(null);
+
+      if (typeof window !== 'undefined' && window.location) {
+        const currentPath = window.location.pathname;
+        if (!currentPath.startsWith('/login') && !currentPath.startsWith('/signup') && currentPath !== '/') {
+          window.location.href = '/login?expired=true';
+        }
+      }
+    });
+
     // 1. Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
@@ -27,7 +47,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     });
 
-    // 2. Listen for auth changes
+    // 2. Listen for auth changes (SIGNED_IN, SIGNED_OUT, TOKEN_REFRESHED, USER_UPDATED)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
@@ -40,6 +60,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
 
     return () => {
+      setUnauthorizedHandler(null);
       subscription.unsubscribe();
     };
   }, []);

@@ -1,12 +1,15 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { Layers, Shield, ShieldAlert, ArrowRight } from 'lucide-react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { Layers, Shield, ShieldAlert, ArrowRight, AlertCircle } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { UserRole } from '../../lib/types';
 
 export const LoginPage: React.FC = () => {
   const { signIn } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const isExpired = searchParams.get('expired') === 'true';
+
   const [email, setEmail] = useState('planner@onground.com');
   const [password, setPassword] = useState('••••••••••••');
   const [selectedRole, setSelectedRole] = useState<UserRole>('planner');
@@ -28,6 +31,31 @@ export const LoginPage: React.FC = () => {
           <h1 style={{ fontSize: '1.4rem', fontWeight: 700, color: '#ffffff', marginBottom: '4px' }}>Sign in to OnGround</h1>
           <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>Infrastructure Progress & Schedule Intelligence</p>
         </div>
+
+        {/* Session Expired Notice */}
+        {isExpired && (
+          <div
+            style={{
+              marginBottom: '20px',
+              padding: '12px 16px',
+              backgroundColor: 'rgba(239, 68, 68, 0.12)',
+              border: '1px solid rgba(239, 68, 68, 0.35)',
+              borderRadius: '8px',
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: '10px',
+              color: '#fca5a5',
+              fontSize: '13px',
+              lineHeight: 1.4,
+            }}
+          >
+            <AlertCircle size={18} style={{ flexShrink: 0, color: '#ef4444', marginTop: '2px' }} />
+            <div>
+              <div style={{ fontWeight: 600, color: '#ffffff', marginBottom: '2px' }}>Session Expired</div>
+              <div>Your session has expired. Please sign in again.</div>
+            </div>
+          </div>
+        )}
 
         {/* Demo Account Role Picker */}
         <div style={{ marginBottom: '20px' }}>

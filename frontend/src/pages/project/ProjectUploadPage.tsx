@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { UploadDropzone } from '../../components/upload/UploadDropzone';
 import { UploadStatusCard, PipelineStep } from '../../components/upload/UploadStatusCard';
-import { apiClient, ApiError } from '../../lib/apiClient';
+import { apiClient, formatApiErrorMessage } from '../../lib/apiClient';
 import { ExtractedActivity, MatchResult } from '../../lib/types';
 import { Toast, ToastMessage } from '../../components/common/Toast';
 import { ArrowLeft, Cpu } from 'lucide-react';
@@ -96,10 +96,7 @@ export const ProjectUploadPage: React.FC = () => {
     } catch (err: any) {
       console.error('Upload, extraction, or matching pipeline error:', err);
       setPipelineStep('failed');
-      const message =
-        err instanceof ApiError
-          ? err.message
-          : err?.message || 'Report processing pipeline encountered an error.';
+      const message = formatApiErrorMessage(err);
       setErrorMessage(message);
       setToast({
         id: Date.now().toString(),

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { RefreshCw, CheckCircle2, Clock, XCircle, FileText, Activity, ShieldCheck, HelpCircle } from 'lucide-react';
-import { apiClient } from '../../lib/apiClient';
+import { apiClient, formatApiErrorMessage } from '../../lib/apiClient';
 import { AnalyticsOut } from '../../lib/types';
 import { LoadingSkeleton } from '../../components/common/LoadingSkeleton';
 import { ErrorState } from '../../components/common/ErrorState';
@@ -19,7 +19,7 @@ export const ProjectAnalyticsPage: React.FC = () => {
       setAnalytics(data);
     } catch (err: any) {
       console.error('Failed to load project analytics from API', err);
-      setError(err?.message || 'Failed to load project analytics from backend.');
+      setError(formatApiErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -91,6 +91,33 @@ export const ProjectAnalyticsPage: React.FC = () => {
           <RefreshCw size={14} className={loading ? 'spin' : ''} /> Refresh
         </button>
       </div>
+
+      {/* Zero Data Informative Banner */}
+      {totalMatches === 0 && (analytics?.total_extractions ?? 0) === 0 && (analytics?.total_planned_activities ?? 0) === 0 && (
+        <div
+          style={{
+            padding: '16px 20px',
+            backgroundColor: 'var(--bg-secondary)',
+            border: '1px dashed var(--border-medium)',
+            borderRadius: 'var(--radius-lg)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            color: 'var(--text-muted)',
+            fontSize: '13px',
+          }}
+        >
+          <HelpCircle size={20} style={{ color: 'var(--accent-blue)', flexShrink: 0 }} />
+          <div>
+            <div style={{ fontWeight: 600, color: 'var(--text-primary)', marginBottom: '2px' }}>
+              No Progress Activity Logged Yet
+            </div>
+            <div>
+              Analytics metrics, progress variance, and status distributions will populate automatically as Daily Progress Reports and Primavera baseline schedules are ingested into the database.
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* KPI Cards */}
       <div className="grid-4">

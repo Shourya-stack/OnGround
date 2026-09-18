@@ -24,12 +24,108 @@ const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:800
 export class ApiError extends Error {
   status: number;
   data: any;
+  retryAfter?: number;
 
-  constructor(status: number, message: string, data?: any) {
+  constructor(status: number, message: string, data?: any, retryAfter?: number) {
     super(message);
     this.name = 'ApiError';
     this.status = status;
     this.data = data;
+    this.retryAfter = retryAfter;
+  }
+}
+
+/**
+ * Maps any error or HTTP status code to a clean, user-facing error message.
+ * Formats rate limit (429) Retry-After intervals and sanitizes server errors.
+ */
+export function formatApiErrorMessage(err: unknown): string {
+  if (err instanceof ApiError) {
+    if (err.status === 429) {
+      if (err.retryAfter && err.retryAfter > 0) {
+        return `Too many requests. Please try again in ${err.retryAfter} seconds.`;
+      }
+      return 'Too many requests. Please try again shortly.';
+    }
+    if (err.status === 401) {
+      return 'Your session has expired. Please sign in again.';
+    }
+    if (err.status === 403) {
+      return "You don't have permission to perform this action.";
+    }
+    if (err.status === 404) {
+      return 'The requested item could not be found.';
+    }
+    if (err.status === 413) {
+      return 'The uploaded file is too large. Maximum size is 10 MB.';
+    }
+    if (err.status === 400 || err.status === 422) {
+      return err.message || 'Your request could not be completed. Please check the information and try again.';
+    }
+    if (err.status === 0 || err.status >= 500) {
+      return 'Something went wrong while contacting the server. Please try again.';
+    }
+    return err.message || 'An unexpected error occurred. Please try again.';
+  }
+
+  if (err instanceof Error) {
+    return err.message || 'An unexpected error occurred. Please try again.';
+  }
+
+  return 'An unexpected error occurred. Please try again.';
+}
+
+/**
+ * Callback handler type for unauthorized (401) responses.
+ */
+export type UnauthorizedHandler = (error: ApiError) => void | Promise<void>;
+
+let onUnauthorizedCallback: UnauthorizedHandler | null = null;
+let isHandling401 = false;
+let last401Timestamp = 0;
+
+/**
+ * Register a centralized 401 handler (e.g. from AuthProvider).
+ */
+export function setUnauthorizedHandler(handler: UnauthorizedHandler | null): void {
+  onUnauthorizedCallback = handler;
+}
+
+/**
+ * Centralized resilience trigger when backend returns HTTP 401.
+ * Throttled to prevent storm/loop on multiple concurrent failing requests.
+ */
+export async function trigger401Handling(error: ApiError): Promise<void> {
+  const now = Date.now();
+  if (isHandling401 || (now - last401Timestamp < 3000)) {
+    return;
+  }
+  isHandling401 = true;
+  last401Timestamp = now;
+
+  try {
+    if (onUnauthorizedCallback) {
+      await onUnauthorizedCallback(error);
+    } else {
+      // Default resilience: clear stale session and redirect to login
+      try {
+        await supabase.auth.signOut();
+      } catch {
+        // Safe swallow
+      }
+      if (typeof window !== 'undefined' && window.location) {
+        const currentPath = window.location.pathname;
+        if (!currentPath.startsWith('/login') && !currentPath.startsWith('/signup') && currentPath !== '/') {
+          window.location.href = '/login?expired=true';
+        }
+      }
+    }
+  } catch (handlerErr) {
+    console.error('[Auth Resilience] Error in 401 handler:', handlerErr);
+  } finally {
+    setTimeout(() => {
+      isHandling401 = false;
+    }, 3000);
   }
 }
 
@@ -45,7 +141,9 @@ async function getAuthHeader(requireAuth = false): Promise<HeadersInit> {
     if (session?.access_token) {
       headers['Authorization'] = `Bearer ${session.access_token}`;
     } else if (requireAuth) {
-      throw new ApiError(401, 'Authentication required. Please sign in to proceed.');
+      const err = new ApiError(401, 'Authentication required. Please sign in to proceed.');
+      trigger401Handling(err);
+      throw err;
     }
   } catch (err) {
     if (requireAuth && err instanceof ApiError) {
@@ -93,29 +191,59 @@ async function apiRequest<T>(
 
   if (!res.ok) {
     let errorData: any = {};
-    let errorMessage = `Request failed with status ${res.status}`;
+    let rawErrorMessage = '';
 
     try {
       errorData = await res.json();
-      errorMessage = errorData.detail || errorData.message || errorMessage;
+      rawErrorMessage = errorData.detail || errorData.message || '';
     } catch {
       // Non-JSON error body (e.g. 502/504 Bad Gateway from reverse proxy)
     }
 
+    // Extract Retry-After header if present (e.g. on 429)
+    let retryAfter: number | undefined;
+    const retryHeader = res.headers.get('Retry-After') || res.headers.get('retry-after');
+    if (retryHeader) {
+      const parsed = parseInt(retryHeader, 10);
+      if (!isNaN(parsed) && parsed > 0) {
+        retryAfter = parsed;
+      }
+    }
+
+    let defaultMessage: string;
     switch (res.status) {
-      case 401:
-        throw new ApiError(401, errorMessage || 'Authentication required or session expired.', errorData);
+      case 401: {
+        defaultMessage = rawErrorMessage || 'Your session has expired. Please sign in again.';
+        const err = new ApiError(401, defaultMessage, errorData);
+        trigger401Handling(err);
+        throw err;
+      }
+      case 429: {
+        defaultMessage = retryAfter
+          ? `Too many requests. Please try again in ${retryAfter} seconds.`
+          : (rawErrorMessage || 'Too many requests. Please try again shortly.');
+        throw new ApiError(429, defaultMessage, errorData, retryAfter);
+      }
       case 403:
-        throw new ApiError(403, errorMessage || 'Access denied. You do not have permission for this action.', errorData);
+        defaultMessage = rawErrorMessage || "You don't have permission to perform this action.";
+        throw new ApiError(403, defaultMessage, errorData);
       case 404:
-        throw new ApiError(404, errorMessage || 'Requested resource not found.', errorData);
+        defaultMessage = rawErrorMessage || 'The requested item could not be found.';
+        throw new ApiError(404, defaultMessage, errorData);
+      case 413:
+        defaultMessage = rawErrorMessage || 'The uploaded file is too large. Maximum size is 10 MB.';
+        throw new ApiError(413, defaultMessage, errorData);
+      case 400:
       case 422:
-        throw new ApiError(422, errorMessage || 'Invalid request payload.', errorData);
+        defaultMessage = rawErrorMessage || 'Your request could not be completed. Please check the information and try again.';
+        throw new ApiError(res.status, defaultMessage, errorData);
       default:
         if (res.status >= 500) {
-          throw new ApiError(res.status, errorMessage || 'Backend server encountered an error.', errorData);
+          defaultMessage = 'Something went wrong while contacting the server. Please try again.';
+        } else {
+          defaultMessage = rawErrorMessage || `Request failed with status ${res.status}`;
         }
-        throw new ApiError(res.status, errorMessage, errorData);
+        throw new ApiError(res.status, defaultMessage, errorData);
     }
   }
 

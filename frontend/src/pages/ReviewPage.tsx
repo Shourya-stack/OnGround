@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useMatches } from '../hooks/useMatches';
 import { ReviewPanel } from '../components/review/ReviewPanel';
-import { apiClient } from '../lib/apiClient';
+import { apiClient, formatApiErrorMessage } from '../lib/apiClient';
 import { CandidateMatch } from '../lib/types';
 import { LoadingSkeleton } from '../components/common/LoadingSkeleton';
 import { ErrorState } from '../components/common/ErrorState';
@@ -33,7 +33,7 @@ export const ReviewPage: React.FC = () => {
         id: Date.now().toString(),
         type: 'error',
         title: 'Confirmation Failed',
-        message: err.message,
+        message: formatApiErrorMessage(err),
       });
     }
   };
@@ -54,7 +54,7 @@ export const ReviewPage: React.FC = () => {
         id: Date.now().toString(),
         type: 'error',
         title: 'Rejection Failed',
-        message: err.message,
+        message: formatApiErrorMessage(err),
       });
     }
   };
@@ -75,7 +75,7 @@ export const ReviewPage: React.FC = () => {
         id: Date.now().toString(),
         type: 'error',
         title: 'Reassignment Failed',
-        message: err.message,
+        message: formatApiErrorMessage(err),
       });
     }
   };

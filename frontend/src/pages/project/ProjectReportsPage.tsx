@@ -7,7 +7,7 @@ import {
   Eye,
   RefreshCw,
 } from 'lucide-react';
-import { apiClient } from '../../lib/apiClient';
+import { apiClient, formatApiErrorMessage } from '../../lib/apiClient';
 import { ExtractionRecord } from '../../lib/types';
 import { LoadingSkeleton } from '../../components/common/LoadingSkeleton';
 import { EmptyState } from '../../components/common/EmptyState';
@@ -34,7 +34,7 @@ export const ProjectReportsPage: React.FC = () => {
       setReports(data || []);
     } catch (err: any) {
       console.error('Failed to load reports from API', err);
-      setError(err?.message || 'Failed to load reports from backend.');
+      setError(formatApiErrorMessage(err));
     } finally {
       setLoading(false);
     }

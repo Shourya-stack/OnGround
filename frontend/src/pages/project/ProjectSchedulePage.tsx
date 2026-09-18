@@ -5,7 +5,7 @@ import {
   Download,
   UploadCloud,
 } from 'lucide-react';
-import { apiClient } from '../../lib/apiClient';
+import { apiClient, formatApiErrorMessage } from '../../lib/apiClient';
 import { SchedulePlanItem } from '../../lib/types';
 import { LoadingSkeleton } from '../../components/common/LoadingSkeleton';
 import { EmptyState } from '../../components/common/EmptyState';
@@ -42,7 +42,7 @@ export const ProjectSchedulePage: React.FC = () => {
       setSchedule(data);
     } catch (err: any) {
       console.error('Failed to load schedule from backend API', err);
-      setError(err?.message || 'Failed to load baseline schedule.');
+      setError(formatApiErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -252,9 +252,9 @@ export const ProjectSchedulePage: React.FC = () => {
             </thead>
             <tbody>
               {filtered.map((item) => {
-                const plan = item.planned_progress ?? 70;
-                const act = item.actual_progress ?? 65;
-                const variance = act - plan;
+                const plan = item.planned_progress ?? 0;
+                const act = item.actual_progress ?? 0;
+                const variance = Number((act - plan).toFixed(1));
                 const status = item.status || (variance < -10 ? 'DELAYED' : variance < 0 ? 'ATTENTION' : 'ON_TRACK');
 
                 return (

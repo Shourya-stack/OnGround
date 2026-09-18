@@ -10,7 +10,7 @@ import {
   ListPlus,
   Loader2,
 } from 'lucide-react';
-import { apiClient, ApiError } from '../../lib/apiClient';
+import { apiClient, formatApiErrorMessage } from '../../lib/apiClient';
 import { ScheduleMatch, CandidateMatch, SchedulePlanItem } from '../../lib/types';
 import { LoadingSkeleton } from '../../components/common/LoadingSkeleton';
 import { ErrorState } from '../../components/common/ErrorState';
@@ -55,10 +55,7 @@ export const ProjectReviewPage: React.FC = () => {
       }
     } catch (err: any) {
       console.error('Failed to load review queue', err);
-      const message =
-        err instanceof ApiError
-          ? err.message
-          : err?.message || 'Failed to load review items from backend.';
+      const message = formatApiErrorMessage(err);
       setError(message);
     } finally {
       setLoading(false);
@@ -86,10 +83,7 @@ export const ProjectReviewPage: React.FC = () => {
       await loadReviewQueue();
     } catch (err: any) {
       console.error('Failed to confirm match', err);
-      const message =
-        err instanceof ApiError
-          ? err.message
-          : err?.message || 'Failed to confirm match.';
+      const message = formatApiErrorMessage(err);
       setToast({ id: Date.now().toString(), type: 'error', title: 'Confirmation Failed', message });
     } finally {
       setIsSubmitting(false);
@@ -110,10 +104,7 @@ export const ProjectReviewPage: React.FC = () => {
       await loadReviewQueue();
     } catch (err: any) {
       console.error('Failed to reject match', err);
-      const message =
-        err instanceof ApiError
-          ? err.message
-          : err?.message || 'Failed to reject match.';
+      const message = formatApiErrorMessage(err);
       setToast({ id: Date.now().toString(), type: 'error', title: 'Rejection Failed', message });
     } finally {
       setIsSubmitting(false);
@@ -134,10 +125,7 @@ export const ProjectReviewPage: React.FC = () => {
       await loadReviewQueue();
     } catch (err: any) {
       console.error('Failed to reassign match', err);
-      const message =
-        err instanceof ApiError
-          ? err.message
-          : err?.message || 'Failed to reassign match.';
+      const message = formatApiErrorMessage(err);
       setToast({ id: Date.now().toString(), type: 'error', title: 'Reassignment Failed', message });
     } finally {
       setIsSubmitting(false);
