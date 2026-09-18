@@ -68,43 +68,83 @@ class TestRoutes(unittest.TestCase):
         self.assertIn(data["status"], ("auto_linked", "pending_review", "unmatched"))
 
     def test_review_confirm_role_enforcement(self):
+        from unittest.mock import patch, MagicMock
+
         match_id = uuid4()
+        planner_id = uuid4()
+        supervisor_id = uuid4()
 
-        # 1. Planner user role should succeed (200 OK)
-        planner_resp = self.client.post(
-            f"/match/{match_id}/confirm",
-            headers={"X-User-Role": "planner"},
-        )
-        self.assertEqual(planner_resp.status_code, 200)
-        self.assertEqual(planner_resp.json()["status"], "confirmed")
+        # 1. Unauthenticated request must receive 401 Unauthorized
+        unauth_resp = self.client.post(f"/match/{match_id}/confirm")
+        self.assertEqual(unauth_resp.status_code, 401)
 
-        # 2. Supervisor user role should be forbidden (403 Forbidden)
-        supervisor_resp = self.client.post(
-            f"/match/{match_id}/confirm",
-            headers={"X-User-Role": "supervisor"},
-        )
-        self.assertEqual(supervisor_resp.status_code, 403)
-        self.assertIn("Forbidden", supervisor_resp.json()["detail"])
+        # 2. Planner user role should succeed (200 OK)
+        mock_planner = MagicMock()
+        mock_planner.auth.get_user.return_value = MagicMock(user=MagicMock(id=str(planner_id), email="planner@onground.build"))
+        mock_planner.table.return_value.select.return_value.eq.return_value.execute.return_value.data = [
+            {"id": str(planner_id), "role": "planner"}
+        ]
+        with patch("backend.auth.security.get_supabase_client", return_value=mock_planner):
+            planner_resp = self.client.post(
+                f"/match/{match_id}/confirm",
+                headers={"Authorization": "Bearer valid.planner.token"},
+            )
+            self.assertEqual(planner_resp.status_code, 200)
+            self.assertEqual(planner_resp.json()["status"], "confirmed")
+
+        # 3. Supervisor user role should be forbidden (403 Forbidden)
+        mock_supervisor = MagicMock()
+        mock_supervisor.auth.get_user.return_value = MagicMock(user=MagicMock(id=str(supervisor_id), email="supervisor@onground.build"))
+        mock_supervisor.table.return_value.select.return_value.eq.return_value.execute.return_value.data = [
+            {"id": str(supervisor_id), "role": "supervisor"}
+        ]
+        with patch("backend.auth.security.get_supabase_client", return_value=mock_supervisor):
+            supervisor_resp = self.client.post(
+                f"/match/{match_id}/confirm",
+                headers={"Authorization": "Bearer valid.supervisor.token"},
+            )
+            self.assertEqual(supervisor_resp.status_code, 403)
+            self.assertIn("Forbidden", supervisor_resp.json()["detail"])
 
     def test_review_reject_role_enforcement(self):
+        from unittest.mock import patch, MagicMock
+
         match_id = uuid4()
+        planner_id = uuid4()
+        supervisor_id = uuid4()
 
-        # 1. Planner user role should succeed (200 OK)
-        planner_resp = self.client.post(
-            f"/match/{match_id}/reject",
-            headers={"X-User-Role": "planner"},
-            json={"reason": "Incorrect work breakdown assignment"},
-        )
-        self.assertEqual(planner_resp.status_code, 200)
-        self.assertEqual(planner_resp.json()["status"], "rejected")
+        # 1. Unauthenticated request must receive 401 Unauthorized
+        unauth_resp = self.client.post(f"/match/{match_id}/reject", json={"reason": "Test"})
+        self.assertEqual(unauth_resp.status_code, 401)
 
-        # 2. Supervisor user role should be forbidden (403 Forbidden)
-        supervisor_resp = self.client.post(
-            f"/match/{match_id}/reject",
-            headers={"X-User-Role": "supervisor"},
-            json={"reason": "Supervisor attempt"},
-        )
-        self.assertEqual(supervisor_resp.status_code, 403)
+        # 2. Planner user role should succeed (200 OK)
+        mock_planner = MagicMock()
+        mock_planner.auth.get_user.return_value = MagicMock(user=MagicMock(id=str(planner_id), email="planner@onground.build"))
+        mock_planner.table.return_value.select.return_value.eq.return_value.execute.return_value.data = [
+            {"id": str(planner_id), "role": "planner"}
+        ]
+        with patch("backend.auth.security.get_supabase_client", return_value=mock_planner):
+            planner_resp = self.client.post(
+                f"/match/{match_id}/reject",
+                headers={"Authorization": "Bearer valid.planner.token"},
+                json={"reason": "Incorrect work breakdown assignment"},
+            )
+            self.assertEqual(planner_resp.status_code, 200)
+            self.assertEqual(planner_resp.json()["status"], "rejected")
+
+        # 3. Supervisor user role should be forbidden (403 Forbidden)
+        mock_supervisor = MagicMock()
+        mock_supervisor.auth.get_user.return_value = MagicMock(user=MagicMock(id=str(supervisor_id), email="supervisor@onground.build"))
+        mock_supervisor.table.return_value.select.return_value.eq.return_value.execute.return_value.data = [
+            {"id": str(supervisor_id), "role": "supervisor"}
+        ]
+        with patch("backend.auth.security.get_supabase_client", return_value=mock_supervisor):
+            supervisor_resp = self.client.post(
+                f"/match/{match_id}/reject",
+                headers={"Authorization": "Bearer valid.supervisor.token"},
+                json={"reason": "Supervisor attempt"},
+            )
+            self.assertEqual(supervisor_resp.status_code, 403)
 
     # =========================================================================
     # Step 5.2 Review Reassignment Tests
@@ -115,8 +155,12 @@ class TestRoutes(unittest.TestCase):
 
         match_id = uuid4()
         target_plan_id = uuid4()
+        planner_id = uuid4()
 
         mock_supabase = MagicMock()
+        mock_user = MagicMock(id=str(planner_id), email="planner@onground.build")
+        mock_supabase.auth.get_user.return_value = MagicMock(user=mock_user)
+
         mock_matches = MagicMock()
         mock_matches.select.return_value.eq.return_value.execute.return_value.data = [
             {"id": str(match_id), "confidence_score": 0.90, "status": "pending_review"}
@@ -128,121 +172,188 @@ class TestRoutes(unittest.TestCase):
             {"id": str(target_plan_id), "activity_code": "CIV-101"}
         ]
 
+        mock_profiles = MagicMock()
+        mock_profiles.select.return_value.eq.return_value.execute.return_value.data = [
+            {"id": str(planner_id), "role": "planner"}
+        ]
+
         def table_router(table_name):
             if table_name == "schedule_matches":
                 return mock_matches
             elif table_name == "schedule_plan":
                 return mock_plan
+            elif table_name == "profiles":
+                return mock_profiles
             return MagicMock()
 
         mock_supabase.table.side_effect = table_router
 
-        with patch("backend.routes.review.get_supabase_client", return_value=mock_supabase):
-            response = self.client.post(
-                f"/match/{match_id}/reassign",
-                headers={"X-User-Role": "planner"},
-                json={
-                    "target_plan_activity_id": str(target_plan_id),
-                    "reason": "Reassigning to correct civil foundation activity",
-                },
-            )
-            self.assertEqual(response.status_code, 200)
-            data = response.json()
-            self.assertEqual(data["match_id"], str(match_id))
-            self.assertEqual(data["plan_activity_id"], str(target_plan_id))
-            self.assertEqual(data["status"], "confirmed")
-            self.assertIn("resolved_by", data)
+        with patch("backend.auth.security.get_supabase_client", return_value=mock_supabase):
+            with patch("backend.routes.review.get_supabase_client", return_value=mock_supabase):
+                response = self.client.post(
+                    f"/match/{match_id}/reassign",
+                    headers={"Authorization": "Bearer valid.planner.token"},
+                    json={
+                        "target_plan_activity_id": str(target_plan_id),
+                        "reason": "Reassigning to correct civil foundation activity",
+                    },
+                )
+                self.assertEqual(response.status_code, 200)
+                data = response.json()
+                self.assertEqual(data["match_id"], str(match_id))
+                self.assertEqual(data["plan_activity_id"], str(target_plan_id))
+                self.assertEqual(data["status"], "confirmed")
+                self.assertEqual(data["resolved_by"], str(planner_id))
 
 
     def test_reassign_endpoint_role_enforcement(self):
+        from unittest.mock import patch, MagicMock
+
         match_id = uuid4()
         target_plan_id = uuid4()
+        supervisor_id = uuid4()
 
-        # Supervisor must be forbidden (403)
-        supervisor_resp = self.client.post(
+        # 1. Unauthenticated request must receive 401
+        unauth_resp = self.client.post(
             f"/match/{match_id}/reassign",
-            headers={"X-User-Role": "supervisor"},
             json={"target_plan_activity_id": str(target_plan_id)},
         )
-        self.assertEqual(supervisor_resp.status_code, 403)
-        self.assertIn("Forbidden", supervisor_resp.json()["detail"])
+        self.assertEqual(unauth_resp.status_code, 401)
+
+        # 2. Supervisor must be forbidden (403)
+        mock_supabase = MagicMock()
+        mock_supabase.auth.get_user.return_value = MagicMock(user=MagicMock(id=str(supervisor_id), email="sup@onground.build"))
+        mock_supabase.table.return_value.select.return_value.eq.return_value.execute.return_value.data = [
+            {"id": str(supervisor_id), "role": "supervisor"}
+        ]
+
+        with patch("backend.auth.security.get_supabase_client", return_value=mock_supabase):
+            supervisor_resp = self.client.post(
+                f"/match/{match_id}/reassign",
+                headers={"Authorization": "Bearer valid.supervisor.token"},
+                json={"target_plan_activity_id": str(target_plan_id)},
+            )
+            self.assertEqual(supervisor_resp.status_code, 403)
+            self.assertIn("Forbidden", supervisor_resp.json()["detail"])
 
     def test_reassign_endpoint_invalid_body(self):
+        from unittest.mock import patch, MagicMock
+
         match_id = uuid4()
+        planner_id = uuid4()
 
-        # 1. Missing target_plan_activity_id
-        resp1 = self.client.post(
-            f"/match/{match_id}/reassign",
-            headers={"X-User-Role": "planner"},
-            json={"reason": "No target provided"},
-        )
-        self.assertEqual(resp1.status_code, 422)
+        mock_supabase = MagicMock()
+        mock_supabase.auth.get_user.return_value = MagicMock(user=MagicMock(id=str(planner_id), email="planner@onground.build"))
+        mock_supabase.table.return_value.select.return_value.eq.return_value.execute.return_value.data = [
+            {"id": str(planner_id), "role": "planner"}
+        ]
 
-        # 2. Malformed UUID
-        resp2 = self.client.post(
-            f"/match/{match_id}/reassign",
-            headers={"X-User-Role": "planner"},
-            json={"target_plan_activity_id": "not-a-valid-uuid"},
-        )
-        self.assertEqual(resp2.status_code, 422)
+        with patch("backend.auth.security.get_supabase_client", return_value=mock_supabase):
+            # 1. Missing target_plan_activity_id
+            resp1 = self.client.post(
+                f"/match/{match_id}/reassign",
+                headers={"Authorization": "Bearer valid.planner.token"},
+                json={"reason": "No target provided"},
+            )
+            self.assertEqual(resp1.status_code, 422)
+
+            # 2. Malformed UUID
+            resp2 = self.client.post(
+                f"/match/{match_id}/reassign",
+                headers={"Authorization": "Bearer valid.planner.token"},
+                json={"target_plan_activity_id": "not-a-valid-uuid"},
+            )
+            self.assertEqual(resp2.status_code, 422)
 
     def test_reassign_endpoint_match_not_found_mock(self):
         from unittest.mock import patch, MagicMock
 
         match_id = uuid4()
         target_plan_id = uuid4()
+        planner_id = uuid4()
 
         mock_supabase = MagicMock()
-        # Mock empty data for schedule_matches
-        mock_match_query = MagicMock()
-        mock_match_query.select.return_value.eq.return_value.execute.return_value.data = []
-        mock_supabase.table.return_value = mock_match_query
+        mock_supabase.auth.get_user.return_value = MagicMock(user=MagicMock(id=str(planner_id), email="planner@onground.build"))
 
-        with patch("backend.routes.review.get_supabase_client", return_value=mock_supabase):
-            response = self.client.post(
-                f"/match/{match_id}/reassign",
-                headers={"X-User-Role": "planner"},
-                json={"target_plan_activity_id": str(target_plan_id)},
-            )
-            self.assertEqual(response.status_code, 404)
-            self.assertIn("not found", response.json()["detail"])
+        mock_matches = MagicMock()
+        mock_matches.select.return_value.eq.return_value.execute.return_value.data = []
+
+        mock_profiles = MagicMock()
+        mock_profiles.select.return_value.eq.return_value.execute.return_value.data = [
+            {"id": str(planner_id), "role": "planner"}
+        ]
+
+        def table_router(table_name):
+            if table_name == "profiles":
+                return mock_profiles
+            return mock_matches
+
+        mock_supabase.table.side_effect = table_router
+
+        with patch("backend.auth.security.get_supabase_client", return_value=mock_supabase):
+            with patch("backend.routes.review.get_supabase_client", return_value=mock_supabase):
+                response = self.client.post(
+                    f"/match/{match_id}/reassign",
+                    headers={"Authorization": "Bearer valid.planner.token"},
+                    json={"target_plan_activity_id": str(target_plan_id)},
+                )
+                self.assertEqual(response.status_code, 404)
+                self.assertIn("not found", response.json()["detail"])
 
     def test_reassign_endpoint_target_plan_not_found_mock(self):
         from unittest.mock import patch, MagicMock
 
         match_id = uuid4()
         target_plan_id = uuid4()
+        planner_id = uuid4()
 
         mock_supabase = MagicMock()
+        mock_supabase.auth.get_user.return_value = MagicMock(user=MagicMock(id=str(planner_id), email="planner@onground.build"))
+
+        mock_matches = MagicMock()
+        mock_matches.select.return_value.eq.return_value.execute.return_value.data = [
+            {"id": str(match_id), "confidence_score": 0.85, "status": "pending_review"}
+        ]
+
+        mock_plan = MagicMock()
+        mock_plan.select.return_value.eq.return_value.execute.return_value.data = []
+
+        mock_profiles = MagicMock()
+        mock_profiles.select.return_value.eq.return_value.execute.return_value.data = [
+            {"id": str(planner_id), "role": "planner"}
+        ]
 
         def table_router(table_name):
-            mock_table = MagicMock()
             if table_name == "schedule_matches":
-                mock_table.select.return_value.eq.return_value.execute.return_value.data = [
-                    {"id": str(match_id), "confidence_score": 0.85, "status": "pending_review"}
-                ]
+                return mock_matches
             elif table_name == "schedule_plan":
-                mock_table.select.return_value.eq.return_value.execute.return_value.data = []
-            return mock_table
+                return mock_plan
+            elif table_name == "profiles":
+                return mock_profiles
+            return MagicMock()
 
         mock_supabase.table.side_effect = table_router
 
-        with patch("backend.routes.review.get_supabase_client", return_value=mock_supabase):
-            response = self.client.post(
-                f"/match/{match_id}/reassign",
-                headers={"X-User-Role": "planner"},
-                json={"target_plan_activity_id": str(target_plan_id)},
-            )
-            self.assertEqual(response.status_code, 404)
-            self.assertIn("Target schedule plan activity", response.json()["detail"])
+        with patch("backend.auth.security.get_supabase_client", return_value=mock_supabase):
+            with patch("backend.routes.review.get_supabase_client", return_value=mock_supabase):
+                response = self.client.post(
+                    f"/match/{match_id}/reassign",
+                    headers={"Authorization": "Bearer valid.planner.token"},
+                    json={"target_plan_activity_id": str(target_plan_id)},
+                )
+                self.assertEqual(response.status_code, 404)
+                self.assertIn("Target schedule plan activity", response.json()["detail"])
 
     def test_reassign_endpoint_updates_match_and_logs_audit_mock(self):
         from unittest.mock import patch, MagicMock
 
         match_id = uuid4()
         target_plan_id = uuid4()
+        planner_id = uuid4()
 
         mock_supabase = MagicMock()
+        mock_supabase.auth.get_user.return_value = MagicMock(user=MagicMock(id=str(planner_id), email="planner@onground.build"))
+
         mock_matches_table = MagicMock()
         mock_matches_table.select.return_value.eq.return_value.execute.return_value.data = [
             {"id": str(match_id), "confidence_score": 0.82, "status": "pending_review"}
@@ -254,40 +365,50 @@ class TestRoutes(unittest.TestCase):
             {"id": str(target_plan_id), "activity_code": "CIV-101"}
         ]
 
+        mock_profiles_table = MagicMock()
+        mock_profiles_table.select.return_value.eq.return_value.execute.return_value.data = [
+            {"id": str(planner_id), "role": "planner"}
+        ]
+
         def table_router(table_name):
             if table_name == "schedule_matches":
                 return mock_matches_table
             elif table_name == "schedule_plan":
                 return mock_plan_table
+            elif table_name == "profiles":
+                return mock_profiles_table
             return MagicMock()
 
         mock_supabase.table.side_effect = table_router
 
-        with patch("backend.routes.review.get_supabase_client", return_value=mock_supabase):
-            with patch("backend.routes.review.log_action") as mock_log:
-                response = self.client.post(
-                    f"/match/{match_id}/reassign",
-                    headers={"X-User-Role": "planner"},
-                    json={
-                        "target_plan_activity_id": str(target_plan_id),
-                        "reason": "Correct assignment verified",
-                    },
-                )
-                self.assertEqual(response.status_code, 200)
+        with patch("backend.auth.security.get_supabase_client", return_value=mock_supabase):
+            with patch("backend.routes.review.get_supabase_client", return_value=mock_supabase):
+                with patch("backend.routes.review.log_action") as mock_log:
+                    response = self.client.post(
+                        f"/match/{match_id}/reassign",
+                        headers={"Authorization": "Bearer valid.planner.token"},
+                        json={
+                            "target_plan_activity_id": str(target_plan_id),
+                            "reason": "Correct assignment verified",
+                        },
+                    )
+                    self.assertEqual(response.status_code, 200)
 
-                # Verify UPDATE was called on schedule_matches, NOT insert
-                mock_matches_table.update.assert_called_once()
-                update_payload = mock_matches_table.update.call_args[0][0]
-                self.assertEqual(update_payload["plan_activity_id"], str(target_plan_id))
-                self.assertEqual(update_payload["status"], "confirmed")
+                    # Verify UPDATE was called on schedule_matches, NOT insert
+                    mock_matches_table.update.assert_called_once()
+                    update_payload = mock_matches_table.update.call_args[0][0]
+                    self.assertEqual(update_payload["plan_activity_id"], str(target_plan_id))
+                    self.assertEqual(update_payload["status"], "confirmed")
+                    self.assertEqual(update_payload["resolved_by"], str(planner_id))
 
-                # Verify audit logging
-                mock_log.assert_called_once()
-                log_kwargs = mock_log.call_args[1]
-                self.assertEqual(log_kwargs["action"], "manually_linked")
-                self.assertEqual(log_kwargs["entity_type"], "schedule_matches")
-                self.assertEqual(log_kwargs["entity_id"], match_id)
-                self.assertEqual(log_kwargs["confidence_score"], 0.82)
+                    # Verify audit logging
+                    mock_log.assert_called_once()
+                    log_kwargs = mock_log.call_args[1]
+                    self.assertEqual(log_kwargs["action"], "manually_linked")
+                    self.assertEqual(log_kwargs["entity_type"], "schedule_matches")
+                    self.assertEqual(log_kwargs["entity_id"], match_id)
+                    self.assertEqual(log_kwargs["actor_id"], planner_id)
+                    self.assertEqual(log_kwargs["confidence_score"], 0.82)
 
     # =========================================================================
     # Step 5.1 Read / Query Endpoint Tests

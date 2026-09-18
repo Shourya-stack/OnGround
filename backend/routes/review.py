@@ -19,48 +19,11 @@ from backend.models.schemas import (
 )
 from backend.db.supabase_client import get_supabase_client
 from backend.services.audit_service import log_action
+from backend.auth.security import require_planner_role
 
 router = APIRouter(prefix="", tags=["Review"])
 logger = logging.getLogger("onground.review")
 
-
-def get_current_user(
-    authorization: Optional[str] = Header(None),
-    x_user_role: Optional[str] = Header(None),
-) -> CurrentUser:
-    """
-    Extracts current user and role.
-    Supports JWT tokens via Supabase Auth as well as 'X-User-Role' header for easy demo/testing.
-    """
-    user_id = uuid4()
-    role = (x_user_role or "planner").lower().strip()
-
-    if authorization and authorization.startswith("Bearer "):
-        token = authorization[7:]
-        supabase = get_supabase_client()
-        if supabase:
-            try:
-                user_res = supabase.auth.get_user(token)
-                if user_res and user_res.user:
-                    user_id = UUID(user_res.user.id)
-                    # Check profile role
-                    prof = supabase.table("profiles").select("role").eq("id", str(user_id)).execute()
-                    if prof.data and len(prof.data) > 0:
-                        role = prof.data[0].get("role", role)
-            except Exception as e:
-                logger.warning(f"Could not verify bearer token against Supabase auth: {e}")
-
-    return CurrentUser(id=user_id, role=role)
-
-
-def require_planner_role(user: CurrentUser = Depends(get_current_user)) -> CurrentUser:
-    """Ensures that only users with the 'planner' role can perform the action."""
-    if user.role != "planner":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Forbidden: Only users with the 'planner' role can confirm or reject matches.",
-        )
-    return user
 
 
 @router.post("/match/{match_id}/confirm", response_model=ConfirmResponse)
