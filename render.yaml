@@ -18,3 +18,7 @@ services:
         value: liquid/lfm-2.5-2.6b:free
       - key: FRONTEND_URL
         sync: false
+      - key: TRUST_PROXY_HEADERS
+        value: "true"
+      - key: ENVIRONMENT
+        value: production

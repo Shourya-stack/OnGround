@@ -7,7 +7,7 @@ configurable via environment variables.
 import os
 import time
 import threading
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Optional
 from fastapi import Request, HTTPException, status
 
 logger = logging_import = None
