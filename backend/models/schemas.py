@@ -120,9 +120,22 @@ class RejectResponse(BaseModel):
     status: str = "rejected"
 
 
+class ReassignRequest(BaseModel):
+    target_plan_activity_id: UUID
+    reason: Optional[str] = None
+
+
+class ReassignResponse(BaseModel):
+    match_id: UUID
+    plan_activity_id: UUID
+    status: str = "confirmed"
+    resolved_by: Optional[UUID] = None
+
+
 # =============================================================================
 # Read / Query Schemas (Step 5.1)
 # =============================================================================
+
 
 class SchedulePlanItemOut(BaseModel):
     id: UUID

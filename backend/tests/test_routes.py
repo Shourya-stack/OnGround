@@ -107,6 +107,189 @@ class TestRoutes(unittest.TestCase):
         self.assertEqual(supervisor_resp.status_code, 403)
 
     # =========================================================================
+    # Step 5.2 Review Reassignment Tests
+    # =========================================================================
+
+    def test_reassign_endpoint_success(self):
+        from unittest.mock import patch, MagicMock
+
+        match_id = uuid4()
+        target_plan_id = uuid4()
+
+        mock_supabase = MagicMock()
+        mock_matches = MagicMock()
+        mock_matches.select.return_value.eq.return_value.execute.return_value.data = [
+            {"id": str(match_id), "confidence_score": 0.90, "status": "pending_review"}
+        ]
+        mock_matches.update.return_value.eq.return_value.execute.return_value = MagicMock()
+
+        mock_plan = MagicMock()
+        mock_plan.select.return_value.eq.return_value.execute.return_value.data = [
+            {"id": str(target_plan_id), "activity_code": "CIV-101"}
+        ]
+
+        def table_router(table_name):
+            if table_name == "schedule_matches":
+                return mock_matches
+            elif table_name == "schedule_plan":
+                return mock_plan
+            return MagicMock()
+
+        mock_supabase.table.side_effect = table_router
+
+        with patch("backend.routes.review.get_supabase_client", return_value=mock_supabase):
+            response = self.client.post(
+                f"/match/{match_id}/reassign",
+                headers={"X-User-Role": "planner"},
+                json={
+                    "target_plan_activity_id": str(target_plan_id),
+                    "reason": "Reassigning to correct civil foundation activity",
+                },
+            )
+            self.assertEqual(response.status_code, 200)
+            data = response.json()
+            self.assertEqual(data["match_id"], str(match_id))
+            self.assertEqual(data["plan_activity_id"], str(target_plan_id))
+            self.assertEqual(data["status"], "confirmed")
+            self.assertIn("resolved_by", data)
+
+
+    def test_reassign_endpoint_role_enforcement(self):
+        match_id = uuid4()
+        target_plan_id = uuid4()
+
+        # Supervisor must be forbidden (403)
+        supervisor_resp = self.client.post(
+            f"/match/{match_id}/reassign",
+            headers={"X-User-Role": "supervisor"},
+            json={"target_plan_activity_id": str(target_plan_id)},
+        )
+        self.assertEqual(supervisor_resp.status_code, 403)
+        self.assertIn("Forbidden", supervisor_resp.json()["detail"])
+
+    def test_reassign_endpoint_invalid_body(self):
+        match_id = uuid4()
+
+        # 1. Missing target_plan_activity_id
+        resp1 = self.client.post(
+            f"/match/{match_id}/reassign",
+            headers={"X-User-Role": "planner"},
+            json={"reason": "No target provided"},
+        )
+        self.assertEqual(resp1.status_code, 422)
+
+        # 2. Malformed UUID
+        resp2 = self.client.post(
+            f"/match/{match_id}/reassign",
+            headers={"X-User-Role": "planner"},
+            json={"target_plan_activity_id": "not-a-valid-uuid"},
+        )
+        self.assertEqual(resp2.status_code, 422)
+
+    def test_reassign_endpoint_match_not_found_mock(self):
+        from unittest.mock import patch, MagicMock
+
+        match_id = uuid4()
+        target_plan_id = uuid4()
+
+        mock_supabase = MagicMock()
+        # Mock empty data for schedule_matches
+        mock_match_query = MagicMock()
+        mock_match_query.select.return_value.eq.return_value.execute.return_value.data = []
+        mock_supabase.table.return_value = mock_match_query
+
+        with patch("backend.routes.review.get_supabase_client", return_value=mock_supabase):
+            response = self.client.post(
+                f"/match/{match_id}/reassign",
+                headers={"X-User-Role": "planner"},
+                json={"target_plan_activity_id": str(target_plan_id)},
+            )
+            self.assertEqual(response.status_code, 404)
+            self.assertIn("not found", response.json()["detail"])
+
+    def test_reassign_endpoint_target_plan_not_found_mock(self):
+        from unittest.mock import patch, MagicMock
+
+        match_id = uuid4()
+        target_plan_id = uuid4()
+
+        mock_supabase = MagicMock()
+
+        def table_router(table_name):
+            mock_table = MagicMock()
+            if table_name == "schedule_matches":
+                mock_table.select.return_value.eq.return_value.execute.return_value.data = [
+                    {"id": str(match_id), "confidence_score": 0.85, "status": "pending_review"}
+                ]
+            elif table_name == "schedule_plan":
+                mock_table.select.return_value.eq.return_value.execute.return_value.data = []
+            return mock_table
+
+        mock_supabase.table.side_effect = table_router
+
+        with patch("backend.routes.review.get_supabase_client", return_value=mock_supabase):
+            response = self.client.post(
+                f"/match/{match_id}/reassign",
+                headers={"X-User-Role": "planner"},
+                json={"target_plan_activity_id": str(target_plan_id)},
+            )
+            self.assertEqual(response.status_code, 404)
+            self.assertIn("Target schedule plan activity", response.json()["detail"])
+
+    def test_reassign_endpoint_updates_match_and_logs_audit_mock(self):
+        from unittest.mock import patch, MagicMock
+
+        match_id = uuid4()
+        target_plan_id = uuid4()
+
+        mock_supabase = MagicMock()
+        mock_matches_table = MagicMock()
+        mock_matches_table.select.return_value.eq.return_value.execute.return_value.data = [
+            {"id": str(match_id), "confidence_score": 0.82, "status": "pending_review"}
+        ]
+        mock_matches_table.update.return_value.eq.return_value.execute.return_value = MagicMock()
+
+        mock_plan_table = MagicMock()
+        mock_plan_table.select.return_value.eq.return_value.execute.return_value.data = [
+            {"id": str(target_plan_id), "activity_code": "CIV-101"}
+        ]
+
+        def table_router(table_name):
+            if table_name == "schedule_matches":
+                return mock_matches_table
+            elif table_name == "schedule_plan":
+                return mock_plan_table
+            return MagicMock()
+
+        mock_supabase.table.side_effect = table_router
+
+        with patch("backend.routes.review.get_supabase_client", return_value=mock_supabase):
+            with patch("backend.routes.review.log_action") as mock_log:
+                response = self.client.post(
+                    f"/match/{match_id}/reassign",
+                    headers={"X-User-Role": "planner"},
+                    json={
+                        "target_plan_activity_id": str(target_plan_id),
+                        "reason": "Correct assignment verified",
+                    },
+                )
+                self.assertEqual(response.status_code, 200)
+
+                # Verify UPDATE was called on schedule_matches, NOT insert
+                mock_matches_table.update.assert_called_once()
+                update_payload = mock_matches_table.update.call_args[0][0]
+                self.assertEqual(update_payload["plan_activity_id"], str(target_plan_id))
+                self.assertEqual(update_payload["status"], "confirmed")
+
+                # Verify audit logging
+                mock_log.assert_called_once()
+                log_kwargs = mock_log.call_args[1]
+                self.assertEqual(log_kwargs["action"], "manually_linked")
+                self.assertEqual(log_kwargs["entity_type"], "schedule_matches")
+                self.assertEqual(log_kwargs["entity_id"], match_id)
+                self.assertEqual(log_kwargs["confidence_score"], 0.82)
+
+    # =========================================================================
     # Step 5.1 Read / Query Endpoint Tests
     # =========================================================================
 

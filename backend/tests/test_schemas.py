@@ -14,6 +14,9 @@ from backend.models.schemas import (
     MatchResult,
     ConfirmResponse,
     RejectRequest,
+    RejectResponse,
+    ReassignRequest,
+    ReassignResponse,
     SchedulePlanItemOut,
     ReportItemOut,
     ExtractedActivityContext,
@@ -24,6 +27,7 @@ from backend.models.schemas import (
     AnalyticsOut,
 )
 from datetime import date, datetime, timezone
+
 
 
 class TestSchemas(unittest.TestCase):
@@ -169,7 +173,24 @@ class TestSchemas(unittest.TestCase):
         self.assertEqual(analytics.total_planned_activities, 42)
         self.assertEqual(analytics.matches_by_status.auto_linked, 0)
 
+    def test_reassign_request_schema(self):
+        pid = uuid4()
+        req = ReassignRequest(target_plan_activity_id=pid, reason="Wrong activity matched")
+        self.assertEqual(req.target_plan_activity_id, pid)
+        self.assertEqual(req.reason, "Wrong activity matched")
+
+    def test_reassign_response_schema(self):
+        mid = uuid4()
+        pid = uuid4()
+        user_id = uuid4()
+        res = ReassignResponse(match_id=mid, plan_activity_id=pid, status="confirmed", resolved_by=user_id)
+        self.assertEqual(res.match_id, mid)
+        self.assertEqual(res.plan_activity_id, pid)
+        self.assertEqual(res.status, "confirmed")
+        self.assertEqual(res.resolved_by, user_id)
+
 
 if __name__ == "__main__":
     unittest.main()
+
 
