@@ -35,7 +35,139 @@ def get_embedding_model():
 
 
 import math
+import hashlib
+import threading
+from collections import OrderedDict
 from datetime import date, datetime
+
+MAX_EMBEDDING_CACHE_SIZE = 5000
+
+
+class EmbeddingCache:
+    """Thread-safe bounded LRU cache for dense text embeddings."""
+
+    def __init__(self, max_size: int = MAX_EMBEDDING_CACHE_SIZE):
+        self.max_size = max_size
+        self._cache: OrderedDict[str, List[float]] = OrderedDict()
+        self._lock = threading.Lock()
+        self._hits = 0
+        self._misses = 0
+
+    @staticmethod
+    def create_key(activity_id: Optional[str], text: str) -> str:
+        """
+        Creates a deterministic content-aware cache key using SHA-256 hash.
+        Includes activity_id if provided and normalizes whitespace.
+        """
+        norm_text = " ".join(text.strip().lower().split())
+        text_hash = hashlib.sha256(norm_text.encode("utf-8")).hexdigest()
+        if activity_id:
+            return f"{activity_id}:{text_hash}"
+        return f"raw:{text_hash}"
+
+    def get(self, key: str) -> Optional[List[float]]:
+        with self._lock:
+            if key in self._cache:
+                self._cache.move_to_end(key)
+                self._hits += 1
+                return self._cache[key]
+            self._misses += 1
+            return None
+
+    def put(self, key: str, embedding: List[float]) -> None:
+        with self._lock:
+            if key in self._cache:
+                self._cache.move_to_end(key)
+                self._cache[key] = embedding
+            else:
+                self._cache[key] = embedding
+                if len(self._cache) > self.max_size:
+                    self._cache.popitem(last=False)  # Evict oldest LRU entry
+
+    def size(self) -> int:
+        with self._lock:
+            return len(self._cache)
+
+    def clear(self) -> None:
+        with self._lock:
+            self._cache.clear()
+            self._hits = 0
+            self._misses = 0
+
+    def stats(self) -> Dict[str, int]:
+        with self._lock:
+            return {
+                "size": len(self._cache),
+                "max_size": self.max_size,
+                "hits": self._hits,
+                "misses": self._misses,
+            }
+
+
+_embedding_cache = EmbeddingCache()
+
+
+def get_embedding_cache() -> EmbeddingCache:
+    """Returns the global embedding cache instance."""
+    return _embedding_cache
+
+
+def clear_embedding_cache() -> None:
+    """Clears the global embedding cache (useful for test isolation)."""
+    _embedding_cache.clear()
+
+
+def compute_vector_similarity(emb1: List[float], emb2: List[float]) -> float:
+    """Computes cosine similarity directly between two precomputed dense vector embeddings."""
+    if not emb1 or not emb2:
+        return 0.0
+    try:
+        import numpy as np
+        a = np.array(emb1, dtype=np.float32)
+        b = np.array(emb2, dtype=np.float32)
+        norm_a = np.linalg.norm(a)
+        norm_b = np.linalg.norm(b)
+        if norm_a == 0 or norm_b == 0:
+            return 0.0
+        cos_sim = float(np.dot(a, b) / (norm_a * norm_b))
+    except ImportError:
+        dot = sum(x * y for x, y in zip(emb1, emb2))
+        norm_a = math.sqrt(sum(x * x for x in emb1))
+        norm_b = math.sqrt(sum(y * y for y in emb2))
+        if norm_a == 0 or norm_b == 0:
+            return 0.0
+        cos_sim = float(dot / (norm_a * norm_b))
+    return max(0.0, min(1.0, round(cos_sim, 4)))
+
+
+def get_or_encode_embedding(
+    text: str,
+    activity_id: Optional[str] = None,
+    model: Any = None,
+    cache: Optional[EmbeddingCache] = None,
+) -> Optional[List[float]]:
+    """
+    Retrieves embedding from cache or computes it with SentenceTransformer.
+    Returns None if model is unavailable or in fallback mode.
+    """
+    if model is None or model == "fallback":
+        return None
+
+    c = cache or _embedding_cache
+    cache_key = c.create_key(activity_id, text)
+    cached_emb = c.get(cache_key)
+    if cached_emb is not None:
+        return cached_emb
+
+    # Compute embedding outside the cache lock to allow concurrent readers
+    try:
+        raw_emb = model.encode(text)
+        emb_list = [float(x) for x in list(raw_emb)]
+        c.put(cache_key, emb_list)
+        return emb_list
+    except Exception as e:
+        logger.error(f"Error encoding embedding for text '{text[:40]}...': {e}")
+        return None
 
 
 def _normalize_to_date(val: Any) -> Optional[date]:
@@ -131,7 +263,7 @@ def calculate_date_proximity(
 
 
 def compute_similarity(text1: str, text2: str, model=None) -> float:
-    """Computes cosine similarity between two activity descriptions."""
+    """Computes cosine similarity between two activity descriptions (backward compatible)."""
     if model is None or model == "fallback":
         # Fallback word-overlap Jaccard/Dice similarity for quick local testing without heavy model weights
         s1 = set(text1.lower().split())
@@ -141,29 +273,17 @@ def compute_similarity(text1: str, text2: str, model=None) -> float:
         intersection = len(s1.intersection(s2))
         return round(float(2 * intersection / (len(s1) + len(s2))), 4)
 
-    try:
-        embeddings = model.encode([text1, text2])
-        emb1, emb2 = list(embeddings[0]), list(embeddings[1])
-        try:
-            import numpy as np
-            norm1 = np.linalg.norm(emb1)
-            norm2 = np.linalg.norm(emb2)
-            if norm1 == 0 or norm2 == 0:
-                return 0.0
-            cos_sim = float(np.dot(emb1, emb2) / (norm1 * norm2))
-        except ImportError:
-            dot = sum(a * b for a, b in zip(emb1, emb2))
-            norm1 = math.sqrt(sum(a * a for a in emb1))
-            norm2 = math.sqrt(sum(b * b for b in emb2))
-            if norm1 == 0 or norm2 == 0:
-                return 0.0
-            cos_sim = float(dot / (norm1 * norm2))
+    emb1 = get_or_encode_embedding(text1, model=model)
+    emb2 = get_or_encode_embedding(text2, model=model)
+    if emb1 is not None and emb2 is not None:
+        return compute_vector_similarity(emb1, emb2)
 
-        return max(0.0, min(1.0, round(cos_sim, 4)))
-    except Exception as e:
-        logger.error(f"Error computing embedding similarity: {e}")
-        return 0.5
-
+    s1 = set(text1.lower().split())
+    s2 = set(text2.lower().split())
+    if not s1 or not s2:
+        return 0.0
+    intersection = len(s1.intersection(s2))
+    return round(float(2 * intersection / (len(s1) + len(s2))), 4)
 
 
 def calculate_match_score(
@@ -251,11 +371,35 @@ class MatchingService:
                 },
             ]
 
-        # Score all candidate baseline activities
+        # 1. Pre-encode extracted activity description ONCE before candidate loop
+        extracted_emb = None
+        if self.model is not None and self.model != "fallback":
+            extracted_emb = get_or_encode_embedding(
+                text=activity_description,
+                activity_id=str(extracted_activity_id),
+                model=self.model,
+            )
+
+        # 2. Score all candidate baseline activities
         candidates: List[Tuple[Dict[str, Any], float, float]] = []
 
         for plan in plan_activities:
-            sim = compute_similarity(activity_description, plan["activity_description"], self.model)
+            plan_desc = plan["activity_description"]
+            plan_id = str(plan.get("id", ""))
+
+            if extracted_emb is not None:
+                plan_emb = get_or_encode_embedding(
+                    text=plan_desc,
+                    activity_id=plan_id,
+                    model=self.model,
+                )
+                if plan_emb is not None:
+                    sim = compute_vector_similarity(extracted_emb, plan_emb)
+                else:
+                    sim = compute_similarity(activity_description, plan_desc, model="fallback")
+            else:
+                sim = compute_similarity(activity_description, plan_desc, model=self.model)
+
             date_prox = calculate_date_proximity(
                 extracted_start=start_time,
                 extracted_end=end_time,
