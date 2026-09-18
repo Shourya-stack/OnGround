@@ -10,14 +10,26 @@ export const LoginPage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const isExpired = searchParams.get('expired') === 'true';
 
-  const [email, setEmail] = useState('planner@onground.com');
-  const [password, setPassword] = useState('••••••••••••');
+  const [email, setEmail] = useState('demo_planner@onground.dev');
+  const [password, setPassword] = useState('');
   const [selectedRole, setSelectedRole] = useState<UserRole>('planner');
+  const [loading, setLoading] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    signIn(email, selectedRole);
-    navigate('/dashboard');
+    setAuthError(null);
+    setLoading(true);
+
+    try {
+      await signIn(email, password, selectedRole);
+      navigate('/dashboard');
+    } catch (err: any) {
+      const msg = err?.message || 'Authentication failed. Please check your credentials.';
+      setAuthError(msg);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -57,6 +69,31 @@ export const LoginPage: React.FC = () => {
           </div>
         )}
 
+        {/* Auth Error Notice */}
+        {authError && (
+          <div
+            style={{
+              marginBottom: '20px',
+              padding: '12px 16px',
+              backgroundColor: 'rgba(239, 68, 68, 0.12)',
+              border: '1px solid rgba(239, 68, 68, 0.35)',
+              borderRadius: '8px',
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: '10px',
+              color: '#fca5a5',
+              fontSize: '13px',
+              lineHeight: 1.4,
+            }}
+          >
+            <AlertCircle size={18} style={{ flexShrink: 0, color: '#ef4444', marginTop: '2px' }} />
+            <div>
+              <div style={{ fontWeight: 600, color: '#ffffff', marginBottom: '2px' }}>Authentication Error</div>
+              <div>{authError}</div>
+            </div>
+          </div>
+        )}
+
         {/* Demo Account Role Picker */}
         <div style={{ marginBottom: '20px' }}>
           <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '8px' }}>
@@ -69,7 +106,7 @@ export const LoginPage: React.FC = () => {
               style={{ justifyContent: 'center', padding: '10px', height: 'auto' }}
               onClick={() => {
                 setSelectedRole('planner');
-                setEmail('planner@onground.com');
+                setEmail('demo_planner@onground.dev');
               }}
             >
               <Shield size={16} />
@@ -114,6 +151,7 @@ export const LoginPage: React.FC = () => {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              placeholder="Enter password"
               required
               className="form-input"
             />
@@ -121,10 +159,11 @@ export const LoginPage: React.FC = () => {
 
           <button
             type="submit"
+            disabled={loading}
             className="btn btn-primary"
-            style={{ width: '100%', marginTop: '8px', padding: '12px' }}
+            style={{ width: '100%', marginTop: '8px', padding: '12px', opacity: loading ? 0.7 : 1, cursor: loading ? 'not-allowed' : 'pointer' }}
           >
-            Sign In as {selectedRole === 'planner' ? 'Planner' : 'Supervisor'} <ArrowRight size={16} />
+            {loading ? 'Signing in...' : `Sign In as ${selectedRole === 'planner' ? 'Planner' : 'Supervisor'}`} <ArrowRight size={16} />
           </button>
         </form>
 

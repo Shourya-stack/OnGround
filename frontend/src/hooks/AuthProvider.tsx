@@ -75,7 +75,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (data && !error) {
         setProfile(data as UserProfile);
-        setRole(data.role as UserRole);
+        if (data.role === 'planner' || data.role === 'supervisor') {
+          setRole(data.role as UserRole);
+        }
       }
     } catch (err) {
       console.warn('Could not fetch user profile from Supabase:', err);
@@ -84,19 +86,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }
 
-  const signIn = async (email: string, selectedRole: UserRole = 'planner') => {
+  const signIn = async (email: string, password = '', _selectedRole: UserRole = 'planner') => {
     setLoading(true);
     try {
-      // For local development and demo purposes, allows instant demo login
-      setRole(selectedRole);
-      setProfile({
-        id: '00000000-0000-0000-0000-000000000002',
-        email: email,
-        full_name: email.split('@')[0],
-        role: selectedRole,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
+      const trimmedEmail = email.trim();
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: trimmedEmail,
+        password: password,
       });
+
+      if (error) {
+        throw error;
+      }
+
+      if (data.session && data.user) {
+        setSession(data.session);
+        setUser(data.user);
+        await fetchProfile(data.user.id);
+      }
     } finally {
       setLoading(false);
     }

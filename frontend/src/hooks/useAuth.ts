@@ -16,7 +16,7 @@ interface AuthContextType {
   isPlanner: boolean;
   isSupervisor: boolean;
   loading: boolean;
-  signIn: (email: string, role?: UserRole) => Promise<void>;
+  signIn: (email: string, password?: string, role?: UserRole) => Promise<void>;
   signOut: () => Promise<void>;
   switchRoleForDemo: (newRole: UserRole) => void;
 }
