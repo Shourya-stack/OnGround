@@ -7,9 +7,10 @@ Supports project_id and discipline filtering and pagination.
 import logging
 from typing import List, Optional
 from uuid import UUID
-from fastapi import APIRouter, Query, HTTPException, status
-from backend.models.schemas import SchedulePlanItemOut
+from fastapi import APIRouter, Query, HTTPException, status, Depends
+from backend.models.schemas import SchedulePlanItemOut, CurrentUser
 from backend.db.supabase_client import get_supabase_client
+from backend.auth.security import require_any_authenticated
 
 router = APIRouter(prefix="", tags=["Schedule"])
 logger = logging.getLogger("onground.schedule")
@@ -21,9 +22,11 @@ async def get_schedule(
     discipline: Optional[str] = Query(None, description="Filter by discipline (civil, piping, electrical, etc.)"),
     limit: int = Query(100, ge=1, le=500, description="Max records to return"),
     offset: int = Query(0, ge=0, description="Pagination offset"),
+    current_user: CurrentUser = Depends(require_any_authenticated),
 ):
     """
     Retrieves baseline schedule plan activities from public.schedule_plan.
+    Protected with Supabase Bearer JWT authentication.
     """
     supabase = get_supabase_client()
     if not supabase:
@@ -45,5 +48,5 @@ async def get_schedule(
         logger.error(f"Error fetching schedule plan: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to query schedule plan: {str(e)}",
+            detail="Failed to query schedule plan.",
         )

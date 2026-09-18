@@ -15,9 +15,26 @@ from fastapi.testclient import TestClient
 from backend.main import app
 
 
+from unittest.mock import patch, MagicMock
+from backend.auth.rate_limiter import limiter
+
+
 class TestRoutes(unittest.TestCase):
     def setUp(self):
         self.client = TestClient(app)
+        limiter.reset()
+        self.user_id = uuid4()
+        self.auth_headers = {"Authorization": "Bearer valid.auth.token"}
+
+        # Standard mock supabase client for authentication
+        self.mock_auth_supabase = MagicMock()
+        mock_user = MagicMock()
+        mock_user.id = str(self.user_id)
+        mock_user.email = "supervisor@onground.build"
+        self.mock_auth_supabase.auth.get_user.return_value = MagicMock(user=mock_user)
+        self.mock_auth_supabase.table.return_value.select.return_value.eq.return_value.execute.return_value.data = [
+            {"id": str(self.user_id), "email": "supervisor@onground.build", "role": "supervisor"}
+        ]
 
     def test_health_endpoint(self):
         response = self.client.get("/health")
@@ -29,43 +46,54 @@ class TestRoutes(unittest.TestCase):
     def test_upload_endpoint_valid_file(self):
         file_content = b"Daily report: fit-up of 12-inch pipe in unit 100."
         file = io.BytesIO(file_content)
-        response = self.client.post(
-            "/upload",
-            files={"file": ("report.txt", file, "text/plain")},
-        )
-        self.assertEqual(response.status_code, 200)
-        data = response.json()
-        self.assertIn("extraction_id", data)
-        self.assertEqual(data["status"], "pending")
+        with patch("backend.auth.security.get_supabase_client", return_value=self.mock_auth_supabase):
+            response = self.client.post(
+                "/upload",
+                files={"file": ("report.txt", file, "text/plain")},
+                headers=self.auth_headers,
+            )
+            self.assertEqual(response.status_code, 200)
+            data = response.json()
+            self.assertIn("extraction_id", data)
+            self.assertEqual(data["status"], "pending")
 
     def test_upload_endpoint_invalid_extension(self):
         file = io.BytesIO(b"Fake executable")
-        response = self.client.post(
-            "/upload",
-            files={"file": ("malicious.exe", file, "application/octet-stream")},
-        )
-        self.assertEqual(response.status_code, 400)
-        self.assertIn("Unsupported file format", response.json()["detail"])
+        with patch("backend.auth.security.get_supabase_client", return_value=self.mock_auth_supabase):
+            response = self.client.post(
+                "/upload",
+                files={"file": ("malicious.exe", file, "application/octet-stream")},
+                headers=self.auth_headers,
+            )
+            self.assertEqual(response.status_code, 400)
+            self.assertIn("Unsupported file format", response.json()["detail"])
 
     def test_extract_endpoint_direct_text(self):
         eid = uuid4()
-        response = self.client.post(
-            f"/extract/{eid}",
-            json={"raw_text": "Fit-up and root welding of water piping in Unit 200 (08:00 to 16:00). Discipline: Piping."},
-        )
-        self.assertEqual(response.status_code, 200)
-        data = response.json()
-        self.assertEqual(data["extraction_id"], str(eid))
-        self.assertIn(data["status"], ["complete", "extracted"])
-        self.assertGreaterEqual(data["activities_count"], 1)
+        with patch("backend.auth.security.get_supabase_client", return_value=self.mock_auth_supabase):
+            with patch("backend.routes.extract.get_supabase_client", return_value=self.mock_auth_supabase):
+                response = self.client.post(
+                    f"/extract/{eid}",
+                    json={"raw_text": "Fit-up and root welding of water piping in Unit 200 (08:00 to 16:00). Discipline: Piping."},
+                    headers=self.auth_headers,
+                )
+                self.assertEqual(response.status_code, 200)
+                data = response.json()
+                self.assertEqual(data["extraction_id"], str(eid))
+                self.assertIn(data["status"], ["complete", "extracted"])
+                self.assertGreaterEqual(data["activities_count"], 1)
 
     def test_match_endpoint(self):
         eid = uuid4()
-        response = self.client.post(f"/match/{eid}")
-        self.assertEqual(response.status_code, 200)
-        data = response.json()
-        self.assertEqual(data["extracted_activity_id"], str(eid))
-        self.assertIn(data["status"], ("auto_linked", "pending_review", "unmatched"))
+        with patch("backend.auth.security.get_supabase_client", return_value=self.mock_auth_supabase):
+            response = self.client.post(
+                f"/match/{eid}",
+                headers=self.auth_headers,
+            )
+            self.assertEqual(response.status_code, 200)
+            data = response.json()
+            self.assertEqual(data["extracted_activity_id"], str(eid))
+            self.assertIn(data["status"], ("auto_linked", "pending_review", "unmatched"))
 
     def test_review_confirm_role_enforcement(self):
         from unittest.mock import patch, MagicMock
@@ -415,94 +443,106 @@ class TestRoutes(unittest.TestCase):
     # =========================================================================
 
     def test_get_schedule_endpoint(self):
-        response = self.client.get("/schedule")
-        self.assertEqual(response.status_code, 200)
-        data = response.json()
-        self.assertIsInstance(data, list)
+        with patch("backend.auth.security.get_supabase_client", return_value=self.mock_auth_supabase):
+            response = self.client.get("/schedule", headers=self.auth_headers)
+            self.assertEqual(response.status_code, 200)
+            data = response.json()
+            self.assertIsInstance(data, list)
 
     def test_get_schedule_with_filters(self):
         pid = uuid4()
-        response = self.client.get(f"/schedule?project_id={pid}&discipline=piping&limit=10&offset=0")
-        self.assertEqual(response.status_code, 200)
-        data = response.json()
-        self.assertIsInstance(data, list)
+        with patch("backend.auth.security.get_supabase_client", return_value=self.mock_auth_supabase):
+            response = self.client.get(f"/schedule?project_id={pid}&discipline=piping&limit=10&offset=0", headers=self.auth_headers)
+            self.assertEqual(response.status_code, 200)
+            data = response.json()
+            self.assertIsInstance(data, list)
 
     def test_get_reports_endpoint(self):
-        response = self.client.get("/reports")
-        self.assertEqual(response.status_code, 200)
-        data = response.json()
-        self.assertIsInstance(data, list)
+        with patch("backend.auth.security.get_supabase_client", return_value=self.mock_auth_supabase):
+            response = self.client.get("/reports", headers=self.auth_headers)
+            self.assertEqual(response.status_code, 200)
+            data = response.json()
+            self.assertIsInstance(data, list)
 
     def test_get_reports_with_filters(self):
         pid = uuid4()
-        response = self.client.get(f"/reports?project_id={pid}&status=complete&limit=5&offset=0")
-        self.assertEqual(response.status_code, 200)
-        data = response.json()
-        self.assertIsInstance(data, list)
+        with patch("backend.auth.security.get_supabase_client", return_value=self.mock_auth_supabase):
+            response = self.client.get(f"/reports?project_id={pid}&status=complete&limit=5&offset=0", headers=self.auth_headers)
+            self.assertEqual(response.status_code, 200)
+            data = response.json()
+            self.assertIsInstance(data, list)
 
     def test_get_matches_endpoint(self):
-        response = self.client.get("/matches")
-        self.assertEqual(response.status_code, 200)
-        data = response.json()
-        self.assertIsInstance(data, list)
+        with patch("backend.auth.security.get_supabase_client", return_value=self.mock_auth_supabase):
+            response = self.client.get("/matches", headers=self.auth_headers)
+            self.assertEqual(response.status_code, 200)
+            data = response.json()
+            self.assertIsInstance(data, list)
 
     def test_get_matches_with_filters(self):
         pid = uuid4()
-        response = self.client.get(f"/matches?project_id={pid}&status=pending_review&discipline=piping&limit=10&offset=0")
-        self.assertEqual(response.status_code, 200)
-        data = response.json()
-        self.assertIsInstance(data, list)
+        with patch("backend.auth.security.get_supabase_client", return_value=self.mock_auth_supabase):
+            response = self.client.get(f"/matches?project_id={pid}&status=pending_review&discipline=piping&limit=10&offset=0", headers=self.auth_headers)
+            self.assertEqual(response.status_code, 200)
+            data = response.json()
+            self.assertIsInstance(data, list)
 
     def test_get_unmatched_endpoint(self):
-        response = self.client.get("/unmatched")
-        self.assertEqual(response.status_code, 200)
-        data = response.json()
-        self.assertIsInstance(data, list)
+        with patch("backend.auth.security.get_supabase_client", return_value=self.mock_auth_supabase):
+            response = self.client.get("/unmatched", headers=self.auth_headers)
+            self.assertEqual(response.status_code, 200)
+            data = response.json()
+            self.assertIsInstance(data, list)
 
     def test_get_unmatched_with_filters(self):
-        response = self.client.get("/unmatched?resolution=unresolved&limit=10&offset=0")
-        self.assertEqual(response.status_code, 200)
-        data = response.json()
-        self.assertIsInstance(data, list)
+        with patch("backend.auth.security.get_supabase_client", return_value=self.mock_auth_supabase):
+            response = self.client.get("/unmatched?resolution=unresolved&limit=10&offset=0", headers=self.auth_headers)
+            self.assertEqual(response.status_code, 200)
+            data = response.json()
+            self.assertIsInstance(data, list)
 
     def test_get_audit_endpoint(self):
-        response = self.client.get("/audit")
-        self.assertEqual(response.status_code, 200)
-        data = response.json()
-        self.assertIsInstance(data, list)
+        with patch("backend.auth.security.get_supabase_client", return_value=self.mock_auth_supabase):
+            response = self.client.get("/audit", headers=self.auth_headers)
+            self.assertEqual(response.status_code, 200)
+            data = response.json()
+            self.assertIsInstance(data, list)
 
     def test_get_audit_with_filters(self):
         actor_id = uuid4()
-        response = self.client.get(f"/audit?action=confirmed&actor={actor_id}&limit=10&offset=0")
-        self.assertEqual(response.status_code, 200)
-        data = response.json()
-        self.assertIsInstance(data, list)
+        with patch("backend.auth.security.get_supabase_client", return_value=self.mock_auth_supabase):
+            response = self.client.get(f"/audit?action=confirmed&actor={actor_id}&limit=10&offset=0", headers=self.auth_headers)
+            self.assertEqual(response.status_code, 200)
+            data = response.json()
+            self.assertIsInstance(data, list)
 
     def test_get_analytics_endpoint(self):
-        response = self.client.get("/analytics")
-        self.assertEqual(response.status_code, 200)
-        data = response.json()
-        self.assertIn("total_planned_activities", data)
-        self.assertIn("total_extractions", data)
-        self.assertIn("total_extracted_activities", data)
-        self.assertIn("total_matches", data)
-        self.assertIn("matches_by_status", data)
-        self.assertIn("total_unmatched", data)
-        self.assertIn("unmatched_by_resolution", data)
-        self.assertIn("total_audit_events", data)
-        self.assertIn("auto_linked", data["matches_by_status"])
-        self.assertIn("pending_review", data["matches_by_status"])
-        self.assertIn("confirmed", data["matches_by_status"])
-        self.assertIn("rejected", data["matches_by_status"])
-        self.assertIn("unresolved", data["unmatched_by_resolution"])
+        with patch("backend.auth.security.get_supabase_client", return_value=self.mock_auth_supabase):
+            response = self.client.get("/analytics", headers=self.auth_headers)
+            self.assertEqual(response.status_code, 200)
+            data = response.json()
+            self.assertIn("total_planned_activities", data)
+            self.assertIn("total_extractions", data)
+            self.assertIn("total_extracted_activities", data)
+            self.assertIn("total_matches", data)
+            self.assertIn("matches_by_status", data)
+            self.assertIn("total_unmatched", data)
+            self.assertIn("unmatched_by_resolution", data)
+            self.assertIn("total_audit_events", data)
+            self.assertIn("auto_linked", data["matches_by_status"])
+            self.assertIn("pending_review", data["matches_by_status"])
+            self.assertIn("confirmed", data["matches_by_status"])
+            self.assertIn("rejected", data["matches_by_status"])
+            self.assertIn("unresolved", data["unmatched_by_resolution"])
 
     def test_get_analytics_with_project_filter(self):
         pid = uuid4()
-        response = self.client.get(f"/analytics?project_id={pid}")
-        self.assertEqual(response.status_code, 200)
-        data = response.json()
-        self.assertIn("total_planned_activities", data)
-        self.assertIsInstance(data["total_planned_activities"], int)
+        with patch("backend.auth.security.get_supabase_client", return_value=self.mock_auth_supabase):
+            response = self.client.get(f"/analytics?project_id={pid}", headers=self.auth_headers)
+            self.assertEqual(response.status_code, 200)
+            data = response.json()
+            self.assertIn("total_planned_activities", data)
+            self.assertIsInstance(data["total_planned_activities"], int)
 
 
 if __name__ == "__main__":

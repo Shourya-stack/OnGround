@@ -41,10 +41,10 @@ The complete core frontend experience is operational using comprehensive relatio
 | **Step 2** | Complete Frontend V1 / Main App UI | `PARTIALLY IMPLEMENTED` | 14 workspace pages + 3 portfolio pages render interactive mock workflows. 15/18 checklist items complete. Active phase. |
 | **Step 3** | Team QA / UX / Responsive / Polish | `NOT IMPLEMENTED` | Multi-device QA pass across tablet/mobile and accessibility audit not yet started. |
 | **Step 4** | Frontend Freeze | `NOT IMPLEMENTED` | Formal freeze sign-off awaiting completion of Step 3. |
-| **Step 5** | API Contract Finalization | `PARTIALLY IMPLEMENTED` | Pydantic schemas in `backend/models/schemas.py` and TS types in `frontend/src/lib/types.ts` aligned; OpenAPI export/freeze pending. |
-| **Step 6** | Backend Productionization | `PARTIALLY IMPLEMENTED` | FastAPI endpoints, services, and tests implemented; lacks live Bearer JWT middleware and production logging. |
-| **Step 7** | Frontend + Backend Integration | `NOT IMPLEMENTED` | Frontend still exclusively utilizes in-memory/localStorage mock state via `apiService.ts`. |
-| **Step 8** | AI / Extraction / Matching Hardening | `NOT IMPLEMENTED` | Core hybrid formula works; construction benchmark suite, OCR parsing, and threshold tuning pending. |
+| **Step 5** | API Contract Finalization | `IMPLEMENTED` | Pydantic schemas in `backend/models/schemas.py` and TS types in `frontend/src/lib/types.ts` aligned and live integrated. |
+| **Step 6** | Backend Productionization & Hardening | `IMPLEMENTED` | FastAPI endpoints, services, Bearer JWT auth, magic-byte upload validation, rate limiting, cross-project reassign checks, extraction failure recovery, read endpoint auth, hardened CORS, config validation, sanitized logging, and 103 passing tests. |
+| **Step 7** | Frontend + Backend Integration | `IMPLEMENTED` | Frontend integrates live with backend schedule, reports, matching, review, and analytics APIs via `apiClient.ts`. |
+| **Step 8** | AI / Extraction / Matching Hardening | `NOT IMPLEMENTED` | Core hybrid formula works; construction benchmark suite, OCR parsing, dynamic date proximity F-07 and threshold tuning pending. |
 | **Step 9** | Security / RLS / Full System Testing | `PARTIALLY IMPLEMENTED` | SQL RLS policies declared in `schema.sql`; automated live multi-tenant tests and penetration checks not implemented. |
 | **Step 10** | Deployment + Production Validation | `PARTIALLY IMPLEMENTED` | `vercel.json`, `Dockerfile`, and `render.yaml` exist; production staging validation pending live integration. |
 

@@ -8,9 +8,10 @@ schedule_matches, unmatched_activities, and audit_trail.
 import logging
 from typing import Optional
 from uuid import UUID
-from fastapi import APIRouter, Query, HTTPException, status
-from backend.models.schemas import AnalyticsOut, MatchesBreakdown, UnmatchedBreakdown
+from fastapi import APIRouter, Query, HTTPException, status, Depends
+from backend.models.schemas import AnalyticsOut, MatchesBreakdown, UnmatchedBreakdown, CurrentUser
 from backend.db.supabase_client import get_supabase_client
+from backend.auth.security import require_any_authenticated
 
 router = APIRouter(prefix="", tags=["Analytics"])
 logger = logging.getLogger("onground.analytics")
@@ -19,9 +20,11 @@ logger = logging.getLogger("onground.analytics")
 @router.get("/analytics", response_model=AnalyticsOut)
 async def get_analytics(
     project_id: Optional[UUID] = Query(None, description="Filter analytics by project ID"),
+    current_user: CurrentUser = Depends(require_any_authenticated),
 ):
     """
     Computes summary analytics from the current database state across all 7 operational tables.
+    Protected with Supabase Bearer JWT authentication.
     """
     supabase = get_supabase_client()
     if not supabase:
@@ -108,5 +111,5 @@ async def get_analytics(
         logger.error(f"Error computing analytics: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to calculate analytics: {str(e)}",
+            detail="Failed to calculate analytics.",
         )

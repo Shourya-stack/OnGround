@@ -8,16 +8,19 @@ and stores in SCHEDULE_MATCHES / UNMATCHED_ACTIVITIES.
 import logging
 from typing import List, Optional
 from uuid import UUID
-from fastapi import APIRouter, Query, HTTPException, status
+from fastapi import APIRouter, Query, HTTPException, status, Depends
 from backend.models.schemas import (
     MatchResult,
     ScheduleMatchOut,
     UnmatchedActivityOut,
     ExtractedActivityContext,
     SchedulePlanContext,
+    CurrentUser,
 )
 from backend.db.supabase_client import get_supabase_client
 from backend.services.matching_service import MatchingService
+from backend.auth.security import require_any_authenticated
+from backend.auth.rate_limiter import rate_limit_match
 
 router = APIRouter(prefix="", tags=["Matching"])
 logger = logging.getLogger("onground.match")
@@ -30,9 +33,11 @@ async def get_matches(
     discipline: Optional[str] = Query(None, description="Filter by discipline"),
     limit: int = Query(100, ge=1, le=500, description="Max records to return"),
     offset: int = Query(0, ge=0, description="Pagination offset"),
+    current_user: CurrentUser = Depends(require_any_authenticated),
 ):
     """
     Retrieves schedule matches with joined extracted activity and schedule plan context.
+    Protected with Supabase Bearer JWT authentication.
     """
     supabase = get_supabase_client()
     if not supabase:
@@ -98,7 +103,7 @@ async def get_matches(
         logger.error(f"Error fetching schedule matches: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to query schedule matches: {str(e)}",
+            detail="Failed to query schedule matches.",
         )
 
 
@@ -107,9 +112,11 @@ async def get_unmatched(
     resolution: Optional[str] = Query(None, description="Filter by resolution status (unresolved, marked_new_activity, manually_linked)"),
     limit: int = Query(100, ge=1, le=500, description="Max records to return"),
     offset: int = Query(0, ge=0, description="Pagination offset"),
+    current_user: CurrentUser = Depends(require_any_authenticated),
 ):
     """
     Retrieves unmatched activities with joined extracted activity details.
+    Protected with Supabase Bearer JWT authentication.
     """
     supabase = get_supabase_client()
     if not supabase:
@@ -149,16 +156,19 @@ async def get_unmatched(
         logger.error(f"Error fetching unmatched activities: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to query unmatched activities: {str(e)}",
+            detail="Failed to query unmatched activities.",
         )
 
 
 @router.post("/match/{extracted_activity_id}", response_model=MatchResult)
 async def match_activity(
     extracted_activity_id: UUID,
+    current_user: CurrentUser = Depends(require_any_authenticated),
+    _rate_limit: None = Depends(rate_limit_match),
 ):
     """
     Executes matching pipeline for a specific extracted activity against baseline schedule plan.
+    Protected with Supabase Bearer JWT authentication and rate limiting.
     """
     supabase = get_supabase_client()
     activity_data = None
@@ -186,6 +196,7 @@ async def match_activity(
         activity_description=activity_data["activity_description"],
         discipline=activity_data.get("discipline", "unknown"),
         extraction_confidence=activity_data.get("extraction_confidence", 0.70),
+        actor_id=current_user.id,
     )
 
     return result

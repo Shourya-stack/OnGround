@@ -127,6 +127,7 @@ async def reassign_match(
             logger.error(f"Error checking schedule match existence: {e}")
 
         # 2. Verify target schedule_plan activity exists
+        target_plan = None
         try:
             plan_res = supabase.table("schedule_plan").select("*").eq("id", str(payload.target_plan_activity_id)).execute()
             if not plan_res.data or len(plan_res.data) == 0:
@@ -134,12 +135,46 @@ async def reassign_match(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail=f"Target schedule plan activity '{payload.target_plan_activity_id}' not found",
                 )
+            target_plan = plan_res.data[0]
         except HTTPException:
             raise
         except Exception as e:
             logger.error(f"Error checking target schedule plan activity existence: {e}")
 
-        # 3. Update existing match row
+        # 3. Verify Project Consistency (F-04)
+        target_project_id = target_plan.get("project_id") if target_plan else None
+        
+        # Check source project_id from current schedule_plan activity
+        source_project_id = None
+        current_plan_id = existing_match.get("plan_activity_id")
+        if current_plan_id:
+            try:
+                curr_plan_res = supabase.table("schedule_plan").select("project_id").eq("id", str(current_plan_id)).execute()
+                if curr_plan_res.data and len(curr_plan_res.data) > 0:
+                    source_project_id = curr_plan_res.data[0].get("project_id")
+            except Exception as e:
+                logger.warning(f"Could not verify source plan activity project_id: {e}")
+
+        # Check source project_id from extraction if available
+        if not source_project_id and existing_match.get("extracted_activity_id"):
+            try:
+                act_res = supabase.table("extracted_activities").select("extraction_id").eq("id", str(existing_match.get("extracted_activity_id"))).execute()
+                if act_res.data and len(act_res.data) > 0:
+                    ext_id = act_res.data[0].get("extraction_id")
+                    if ext_id:
+                        ext_res = supabase.table("extractions").select("project_id").eq("id", str(ext_id)).execute()
+                        if ext_res.data and len(ext_res.data) > 0:
+                            source_project_id = ext_res.data[0].get("project_id")
+            except Exception as e:
+                logger.warning(f"Could not verify extraction project_id: {e}")
+
+        if source_project_id and target_project_id and str(source_project_id) != str(target_project_id):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Cross-project reassignment is not permitted. Match and target activity belong to different projects.",
+            )
+
+        # 4. Update existing match row
         try:
             update_data = {
                 "plan_activity_id": str(payload.target_plan_activity_id),
@@ -151,10 +186,10 @@ async def reassign_match(
             logger.error(f"Failed to update schedule match on reassign: {e}")
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Failed to reassign schedule match: {str(e)}",
+                detail="Failed to reassign schedule match.",
             )
 
-    # 4. Log to Audit Trail
+    # 5. Log to Audit Trail
     confidence_score = existing_match.get("confidence_score") if existing_match else 1.0
     reason = payload.reason or "Manually reassigned to target schedule activity"
 

@@ -20,6 +20,8 @@ from backend.routes.reports import router as reports_router
 from backend.routes.audit import router as audit_router
 from backend.routes.analytics import router as analytics_router
 
+from backend.config import get_cors_origins, get_cors_regex, validate_environment, get_environment
+
 # Load environment variables with override enabled
 load_dotenv(override=True)
 
@@ -33,8 +35,17 @@ logger = logging.getLogger("onground")
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application startup and shutdown events."""
-    logger.info("Starting OnGround Backend API...")
-    # In Phase 2: sentence-transformers model preload will be initialized here
+    env = get_environment()
+    logger.info(f"Starting OnGround Backend API in {env.upper()} mode...")
+    
+    # Run startup environment validation
+    is_valid, validation_msgs = validate_environment()
+    for msg in validation_msgs:
+        logger.info(f"[Config Validation] {msg}")
+    
+    if not is_valid and env == "production":
+        logger.error("FATAL: Environment validation failed in production mode.")
+    
     yield
     logger.info("OnGround Backend API shutdown.")
 
@@ -47,21 +58,15 @@ app = FastAPI(
 )
 
 # =============================================================================
-# CORS Configuration
+# CORS Configuration (Production-Hardened)
 # =============================================================================
-allowed_origins = [
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-]
-
-frontend_env = os.getenv("FRONTEND_URL")
-if frontend_env:
-    allowed_origins.append(frontend_env)
+cors_origins = get_cors_origins()
+cors_regex = get_cors_regex()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=allowed_origins,
-    allow_origin_regex=r"https://.*\.vercel\.app",
+    allow_origins=cors_origins,
+    allow_origin_regex=cors_regex,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

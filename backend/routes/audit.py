@@ -7,9 +7,10 @@ Supports action and actor filtering and pagination.
 import logging
 from typing import List, Optional
 from uuid import UUID
-from fastapi import APIRouter, Query, HTTPException, status
-from backend.models.schemas import AuditTrailOut
+from fastapi import APIRouter, Query, HTTPException, status, Depends
+from backend.models.schemas import AuditTrailOut, CurrentUser
 from backend.db.supabase_client import get_supabase_client
+from backend.auth.security import require_any_authenticated
 
 router = APIRouter(prefix="", tags=["Audit"])
 logger = logging.getLogger("onground.audit")
@@ -21,6 +22,7 @@ async def get_audit_trail(
     actor: Optional[UUID] = Query(None, description="Filter by actor user ID"),
     limit: int = Query(100, ge=1, le=500, description="Max records to return"),
     offset: int = Query(0, ge=0, description="Pagination offset"),
+    current_user: CurrentUser = Depends(require_any_authenticated),
 ):
     """
     Retrieves audit trail entries from public.audit_trail in descending chronological order.
@@ -45,5 +47,5 @@ async def get_audit_trail(
         logger.error(f"Error fetching audit trail: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to query audit trail: {str(e)}",
+            detail="Failed to query audit trail.",
         )

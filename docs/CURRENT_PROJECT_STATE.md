@@ -10,27 +10,31 @@
 ## 1. WHERE WE STAND NOW (2-Minute Executive Summary)
 
 - **Current Phase:**  
-  **STEP 2 — Complete Frontend V1 / Phase 2 Main App UI**
+  **PHASE 6 — Backend Productionization & Hardening**
 - **Current Phase Status:**  
-  **PARTIALLY COMPLETE** (Main application UI, workspace layouts, navigation, and mock data engine are functional; fine-tuning edge states, filters, and mobile responsiveness remains).
+  **COMPLETE (Phase 6.1, 6.2, 6.3, 6.4 verified and passing 103 backend tests)**
 - **Already Completed:**  
   - Complete Frontend Blueprint (Step 1) with 32 routes and full Tailwind styling.
-  - Teammate FE Feature Integration (Checkpoint) successfully merged: Activity Linking, Candidate Lists, Traceability Chains, Planned vs Actual Gantt bars, Processing animations, Field Update Feed, Ctrl+K Search, Notifications drawer.
-  - Backend core foundation (FastAPI app, 4 service routers, OpenRouter LLM extraction, sentence-transformers matching, Supabase PostgreSQL schema, and 17 passing pytest tests).
+  - Teammate FE Feature Integration (Checkpoint) successfully merged.
+  - Complete Frontend V1 / Main App UI (Step 2) with interactive workspace pages.
+  - Step 5 Backend Query & Mutation Endpoints (`GET /schedule`, `GET /reports`, `GET /matches`, `GET /unmatched`, `GET /audit`, `GET /analytics`, `POST /match/{id}/reassign`).
+  - Step 5 Live UI Integration across Schedule, Reports, Review Queue, Unmatched, and Analytics.
+  - Phase 6.1: Backend Production Readiness Audit (P1, P2, P3 findings cataloged).
+  - Phase 6.2: P1 Backend Security Hardening (JWT auth on mutations, upload magic-byte signature validation, in-memory sliding window rate limiting).
+  - Phase 6.3: P2 Authorization & Reliability Hardening (Cross-project reassign consistency check, authenticated `GET /audit`, extraction status recovery machine: pending -> processing -> complete/failed).
+  - Phase 6.4: Remaining Production Hardening (F-08 read endpoint authentication policy across `/schedule`, `/reports`, `/matches`, `/unmatched`, `/analytics`; production CORS origin resolution; environment validation and sanitized logging; 103 passing tests).
 - **Currently Working On:**  
-  Step 2 Complete Frontend V1 / Phase 2 Main App UI (18/18 Complete). Ready for Step 3 Team QA.
+  Phase 6.4 complete. Ready for Step 7 / Phase 8 AI matching and dynamic date proximity hardening.
 - **Immediate Next Task:**  
-  Conduct Step 3 Team QA / UX / Responsive Polish pass across tablet and mobile viewports.
+  Phase 8 AI & Matching Engine Hardening (Dynamic date proximity F-07 and threshold calibration).
 - **What Should NOT Be Touched Yet:**  
-  - Real backend live-wiring (Step 7)
-  - Backend production auth rewrites (Step 6)
-  - Production RLS live penetration testing (Step 9)
-  - Staging/Production cloud deployment cutover (Step 10)
-  - Future roadmap items (Primavera P6 XER parser, MS Project sync, BIM 4D, Whisper)
+  - Dynamic date proximity formula changes (deferred to AI/matching phase)
+  - Multi-project database migrations (single-project baseline preserved)
 - **Next Milestone:**  
-  **Frontend Freeze (Step 4)** following QA/Polish.
-- **Biggest Remaining Work:**  
-  Full Frontend-Backend Integration (Step 7) and End-to-End Security & RLS validation (Step 9).
+  **Phase 8 AI / Extraction / Matching Engine Hardening**
+- **Test Suite Status:**  
+  - Backend: **103 passed**, 0 failed (`pytest backend/tests -v`).
+  - Frontend: **Build passing** (`npm run build`).
 
 ---
 
@@ -232,11 +236,15 @@ The frontend contains **32 defined routes** in `frontend/src/App.tsx`:
 - **Command:** `pytest backend/tests -v`
 - **Result:** **PASSED** (Exit Code: 0)
 - **Output:**
+  - `test_auth.py` (8 passed)
   - `test_extraction_service.py` (3 passed)
-  - `test_matching_service.py` (3 passed)
-  - `test_routes.py` (7 passed)
-  - `test_schemas.py` (4 passed)
-  - **Summary:** `17 passed, 6 deprecation warnings in 78.84s`.
+  - `test_matching_service.py` (6 passed)
+  - `test_p2_security_hardening.py` (13 passed)
+  - `test_production_hardening.py` (19 passed)
+  - `test_routes.py` (22 passed)
+  - `test_schemas.py` (12 passed)
+  - `test_security_hardening.py` (20 passed)
+  - **Summary:** `103 passed, 7 deprecation warnings in 92.09s`.
 
 ### Git Status Snapshot
 - Source code in `frontend/src/` contains unstaged integration additions from the completed teammate feature integration (Candidate List, Activity Linking drawer, Traceability, Field Feed, Ctrl+K Search, Notifications).
