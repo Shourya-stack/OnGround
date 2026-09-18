@@ -85,7 +85,7 @@ export const ProjectActivitiesPage: React.FC = () => {
           gap: '16px',
         }}
       >
-        <div style={{ position: 'relative', width: '320px' }}>
+        <div style={{ position: 'relative', width: '320px', maxWidth: '100%' }}>
           <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
           <input
             type="text"

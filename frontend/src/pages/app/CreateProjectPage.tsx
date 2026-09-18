@@ -194,6 +194,7 @@ export const CreateProjectPage: React.FC = () => {
                   {isDone ? <Check size={14} /> : s.num}
                 </div>
                 <span
+                  className={`stepper-step-title ${!isCurrent ? 'inactive' : ''}`}
                   style={{
                     fontSize: '13px',
                     fontWeight: isCurrent ? 700 : 500,
@@ -237,7 +238,7 @@ export const CreateProjectPage: React.FC = () => {
               )}
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+            <div className="form-row-2col">
               <div className="form-group">
                 <label className="form-label">Project / WBS Package Code *</label>
                 <input
@@ -306,7 +307,7 @@ export const CreateProjectPage: React.FC = () => {
               Provide contractual timeline and budgetary benchmarks.
             </p>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+            <div className="form-row-2col">
               <div className="form-group">
                 <label className="form-label">Contract Type *</label>
                 <input
@@ -346,7 +347,7 @@ export const CreateProjectPage: React.FC = () => {
               </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+            <div className="form-row-2col">
               <div className="form-group">
                 <label className="form-label">Planned Start Date *</label>
                 <input

@@ -75,7 +75,7 @@ export const ProjectUploadPage: React.FC = () => {
         <Link to={`/projects/${projectId}/reports`} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: 'var(--text-muted)', textDecoration: 'none', marginBottom: '8px' }}>
           <ArrowLeft size={14} /> Back to Reports
         </Link>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
           <div>
             <h1 style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>
               Upload Daily Progress Report
@@ -95,7 +95,7 @@ export const ProjectUploadPage: React.FC = () => {
         <div className="glass-card" style={{ padding: '36px' }}>
           <UploadDropzone onFileSelect={handleFileSelect} isUploading={false} />
 
-          <div style={{ marginTop: '24px', display: 'flex', gap: '20px', justifyContent: 'center', color: 'var(--text-muted)', fontSize: '12px' }}>
+          <div style={{ marginTop: '24px', display: 'flex', gap: '16px', justifyContent: 'center', flexWrap: 'wrap', color: 'var(--text-muted)', fontSize: '12px' }}>
             <span>✓ Supported: PDF, DOCX, XLSX, CSV, TXT</span>
             <span>✓ Up to 10 MB per file</span>
             <span>✓ Automatic format detection</span>

@@ -182,8 +182,9 @@ export const AppLayout: React.FC = () => {
                 style={{
                   position: 'absolute',
                   top: '60px',
-                  right: '160px',
+                  right: '16px',
                   width: '320px',
+                  maxWidth: 'calc(100vw - 32px)',
                   padding: '16px',
                   zIndex: 1000,
                   backgroundColor: 'var(--bg-secondary)',
@@ -229,8 +230,12 @@ export const AppLayout: React.FC = () => {
             <button
               type="button"
               className="icon-action-btn"
-              onClick={() => signOut()}
+              onClick={async () => {
+                await signOut();
+                navigate('/login');
+              }}
               title="Sign out"
+              aria-label="Sign out"
             >
               <LogOut size={16} />
             </button>
@@ -238,7 +243,7 @@ export const AppLayout: React.FC = () => {
         </header>
 
         {/* Page Content */}
-        <main style={{ padding: '32px', flex: 1, backgroundColor: 'var(--bg-primary)' }}>
+        <main className="workspace-main-content" style={{ flex: 1, backgroundColor: 'var(--bg-primary)' }}>
           <Outlet />
         </main>
       </div>

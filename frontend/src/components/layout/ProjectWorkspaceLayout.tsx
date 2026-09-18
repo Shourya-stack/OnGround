@@ -248,10 +248,11 @@ export const ProjectWorkspaceLayout: React.FC = () => {
               onClick={() => setSearchOpen(true)}
               style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 12px', fontSize: '12px' }}
               title="Global Search (Ctrl+K)"
+              aria-label="Global Search (Ctrl+K)"
             >
               <Search size={14} />
-              <span>Search</span>
-              <kbd style={{ fontSize: '10px', background: 'rgba(255,255,255,0.08)', padding: '1px 5px', borderRadius: '3px', border: '1px solid var(--border-subtle)' }}>
+              <span className="topbar-quick-search-label">Search</span>
+              <kbd className="topbar-quick-search-kbd" style={{ fontSize: '10px', background: 'rgba(255,255,255,0.08)', padding: '1px 5px', borderRadius: '3px', border: '1px solid var(--border-subtle)' }}>
                 Ctrl K
               </kbd>
             </button>
@@ -262,6 +263,7 @@ export const ProjectWorkspaceLayout: React.FC = () => {
               className="icon-action-btn"
               onClick={() => setNotificationsOpen(true)}
               title="Notifications & Alerts"
+              aria-label="Notifications & Alerts"
               style={{ position: 'relative' }}
             >
               <Bell size={16} />
@@ -318,8 +320,12 @@ export const ProjectWorkspaceLayout: React.FC = () => {
             <button
               type="button"
               className="icon-action-btn"
-              onClick={() => signOut()}
+              onClick={async () => {
+                await signOut();
+                navigate('/login');
+              }}
               title="Sign out"
+              aria-label="Sign out"
             >
               <LogOut size={16} />
             </button>

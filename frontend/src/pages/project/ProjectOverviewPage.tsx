@@ -12,7 +12,7 @@ import {
   Activity,
 } from 'lucide-react';
 import { apiService } from '../../api/apiService';
-import { Project, ReportItem, ScheduleMatch, SchedulePlanItem, FieldUpdateRecord } from '../../lib/types';
+import { Project, ReportItem, ScheduleMatch, SchedulePlanItem, FieldUpdateRecord, UnmatchedActivity } from '../../lib/types';
 import { ProgressBar } from '../../components/ui/ProgressBar';
 import { LoadingSkeleton } from '../../components/common/LoadingSkeleton';
 import { FieldUpdateFeed } from '../../components/feed/FieldUpdateFeed';
@@ -27,23 +27,26 @@ export const ProjectOverviewPage: React.FC = () => {
   const [matches, setMatches] = useState<ScheduleMatch[]>([]);
   const [schedule, setSchedule] = useState<SchedulePlanItem[]>([]);
   const [fieldUpdates, setFieldUpdates] = useState<FieldUpdateRecord[]>([]);
+  const [unmatched, setUnmatched] = useState<UnmatchedActivity[]>([]);
 
   useEffect(() => {
     const loadProjectData = async () => {
       setLoading(true);
       try {
-        const [p, r, m, s, f] = await Promise.all([
+        const [p, r, m, s, f, u] = await Promise.all([
           apiService.getProjectById(projectId),
           apiService.getReports(projectId),
           apiService.getMatches(projectId),
           apiService.getSchedule(projectId),
           apiService.getFieldUpdates(),
+          apiService.getUnmatched(projectId),
         ]);
         setProject(p || null);
         setReports(r);
         setMatches(m);
         setSchedule(s);
         setFieldUpdates(f);
+        setUnmatched(u);
       } catch (err) {
         console.error('Failed to load project overview', err);
       } finally {
@@ -59,6 +62,7 @@ export const ProjectOverviewPage: React.FC = () => {
 
   const matchedCount = matches.filter((m) => m.status === 'auto_linked' || m.status === 'confirmed').length;
   const reviewCount = matches.filter((m) => m.status === 'pending_review').length;
+  const unmatchedCount = unmatched.filter((u) => !u.resolution || u.resolution === 'unresolved').length;
   const pendingReviews = matches.filter((m) => m.status === 'pending_review');
 
   // Compute Planned vs Actual statistics
@@ -161,7 +165,7 @@ export const ProjectOverviewPage: React.FC = () => {
       </div>
 
       {/* Planned vs Actual Master Card & Health */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr', gap: '24px' }}>
+      <div className="overview-grid-main">
         {/* Planned vs Actual Card */}
         <div className="glass-card" style={{ padding: '24px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
@@ -285,7 +289,9 @@ export const ProjectOverviewPage: React.FC = () => {
                     <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>High semantic certainty</div>
                   </div>
                 </div>
-                <span style={{ fontWeight: 700, color: 'var(--confidence-high)' }}>{matchedCount} tasks</span>
+                <span style={{ fontWeight: 700, color: 'var(--confidence-high)' }}>
+                  {matchedCount} {matchedCount === 1 ? 'task' : 'tasks'}
+                </span>
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 14px', backgroundColor: 'var(--bg-surface)', borderRadius: 'var(--radius-sm)' }}>
@@ -296,7 +302,9 @@ export const ProjectOverviewPage: React.FC = () => {
                     <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Ambiguous / alternative matches</div>
                   </div>
                 </div>
-                <span style={{ fontWeight: 700, color: 'var(--confidence-review)' }}>{reviewCount} tasks</span>
+                <span style={{ fontWeight: 700, color: 'var(--confidence-review)' }}>
+                  {reviewCount} {reviewCount === 1 ? 'task' : 'tasks'}
+                </span>
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 14px', backgroundColor: 'var(--bg-surface)', borderRadius: 'var(--radius-sm)' }}>
@@ -307,7 +315,9 @@ export const ProjectOverviewPage: React.FC = () => {
                     <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>No high-scoring baseline candidate</div>
                   </div>
                 </div>
-                <span style={{ fontWeight: 700, color: '#ef4444' }}>1 task</span>
+                <span style={{ fontWeight: 700, color: '#ef4444' }}>
+                  {unmatchedCount} {unmatchedCount === 1 ? 'task' : 'tasks'}
+                </span>
               </div>
             </div>
           </div>
@@ -408,7 +418,7 @@ export const ProjectOverviewPage: React.FC = () => {
       </div>
 
       {/* Bottom Grid: Live Field Updates & Review Queue */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '24px' }}>
+      <div className="overview-grid-sub">
         {/* Live Field Updates Timeline (Teammate Feature) */}
         <div className="glass-card" style={{ padding: '24px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>

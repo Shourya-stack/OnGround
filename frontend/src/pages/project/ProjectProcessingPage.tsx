@@ -206,6 +206,7 @@ export const ProjectProcessingPage: React.FC = () => {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
+              flexWrap: 'wrap',
               gap: '16px',
               padding: '14px 18px',
               backgroundColor: 'rgba(239, 68, 68, 0.12)',

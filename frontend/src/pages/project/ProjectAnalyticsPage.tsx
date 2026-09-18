@@ -87,7 +87,7 @@ export const ProjectAnalyticsPage: React.FC = () => {
       </div>
 
       {/* Charts Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: '24px' }}>
+      <div className="analytics-grid-2col">
         {/* Ingestion & Activity Trends */}
         <div className="glass-card" style={{ padding: '28px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>

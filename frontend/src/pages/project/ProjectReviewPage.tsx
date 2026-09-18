@@ -227,7 +227,7 @@ export const ProjectReviewPage: React.FC = () => {
             </div>
           )}
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: '24px', alignItems: 'flex-start' }}>
+          <div className="review-workspace-grid">
             {/* Main Inspection Card */}
             <div className="glass-card" style={{ padding: '32px' }}>
               {/* Field Reported Activity */}

@@ -59,12 +59,64 @@ export const ProjectSchedulePage: React.FC = () => {
   });
 
   const handleExport = () => {
-    setToast({
-      id: Date.now().toString(),
-      type: 'success',
-      title: 'Schedule Exported',
-      message: 'Primavera P6 CSV export generated successfully.',
-    });
+    try {
+      const headers = [
+        'Activity Code',
+        'Activity Description',
+        'Discipline',
+        'Planned Start',
+        'Planned Finish',
+        'Planned Progress (%)',
+        'Actual Progress (%)',
+        'Variance (%)',
+        'Status',
+      ];
+
+      const rows = schedule.map((item) => {
+        const planned = item.planned_progress ?? 0;
+        const actual = item.actual_progress ?? 0;
+        const variance = Number((actual - planned).toFixed(1));
+        const status = item.status || (actual >= planned ? 'ON_TRACK' : 'DELAYED');
+
+        return [
+          `"${(item.activity_code || '').replace(/"/g, '""')}"`,
+          `"${(item.activity_description || '').replace(/"/g, '""')}"`,
+          `"${(item.discipline || '').replace(/"/g, '""')}"`,
+          `"${item.planned_start || ''}"`,
+          `"${item.planned_end || ''}"`,
+          planned,
+          actual,
+          variance,
+          `"${status}"`,
+        ].join(',');
+      });
+
+      const csvContent = [headers.join(','), ...rows].join('\r\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `onground-schedule-${projectId}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      setToast({
+        id: Date.now().toString(),
+        type: 'success',
+        title: 'Schedule Exported',
+        message: `Primavera P6 CSV export (${schedule.length} activities) downloaded successfully.`,
+      });
+    } catch (err: any) {
+      console.error('Failed to export schedule CSV', err);
+      setToast({
+        id: Date.now().toString(),
+        type: 'error',
+        title: 'Export Failed',
+        message: 'Could not generate CSV file.',
+      });
+    }
   };
 
   const handleImportMock = () => {
@@ -110,7 +162,7 @@ export const ProjectSchedulePage: React.FC = () => {
         }}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
-          <div style={{ position: 'relative', width: '320px' }}>
+          <div style={{ position: 'relative', width: '320px', maxWidth: '100%' }}>
             <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
             <input
               type="text"

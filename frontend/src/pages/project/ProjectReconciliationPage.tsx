@@ -153,7 +153,7 @@ export const ProjectReconciliationPage: React.FC = () => {
         }}
       >
         {/* Tab Buttons */}
-        <div style={{ display: 'flex', gap: '6px' }}>
+        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
           <button
             type="button"
             className={`tab-pill ${activeTab === 'review' ? 'active' : ''}`}
@@ -291,7 +291,7 @@ export const ProjectReconciliationPage: React.FC = () => {
               </div>
 
               {/* Actions */}
-              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
                 {m.status === 'pending_review' ? (
                   <>
                     <button
@@ -314,6 +314,7 @@ export const ProjectReconciliationPage: React.FC = () => {
                       type="button"
                       className="btn btn-danger btn-sm"
                       title="Reject Match"
+                      aria-label="Reject Match"
                       onClick={() => handleReject(m.id)}
                     >
                       <X size={14} />

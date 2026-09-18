@@ -22,6 +22,7 @@ export const ProjectTeamPage: React.FC = () => {
     email: '',
     role: 'engineer',
   });
+  const [errors, setErrors] = useState<{ name?: string; email?: string }>({});
   const [toast, setToast] = useState<ToastMessage | null>(null);
 
   const loadTeam = async () => {
@@ -42,13 +43,38 @@ export const ProjectTeamPage: React.FC = () => {
 
   const handleInviteSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const trimmedName = inviteForm.name.trim();
+    const trimmedEmail = inviteForm.email.trim();
+    const newErrors: { name?: string; email?: string } = {};
+
+    if (!trimmedName) {
+      newErrors.name = 'Full Name is required and cannot be empty.';
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!trimmedEmail) {
+      newErrors.email = 'Email address is required.';
+    } else if (!emailRegex.test(trimmedEmail)) {
+      newErrors.email = 'Please enter a valid work email address.';
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return;
+    }
+
+    setErrors({});
     try {
-      await apiService.inviteTeamMember(projectId, inviteForm);
+      await apiService.inviteTeamMember(projectId, {
+        ...inviteForm,
+        name: trimmedName,
+        email: trimmedEmail,
+      });
       setToast({
         id: Date.now().toString(),
         type: 'success',
         title: 'Invitation Dispatched',
-        message: `Invited ${inviteForm.name} as a project ${inviteForm.role}.`,
+        message: `Invited ${trimmedName} as a project ${inviteForm.role}.`,
       });
       setInviteModalOpen(false);
       setInviteForm({ name: '', email: '', role: 'engineer' });
@@ -86,7 +112,14 @@ export const ProjectTeamPage: React.FC = () => {
           </p>
         </div>
 
-        <button type="button" className="btn btn-primary" onClick={() => setInviteModalOpen(true)}>
+        <button
+          type="button"
+          className="btn btn-primary"
+          onClick={() => {
+            setInviteModalOpen(true);
+            setErrors({});
+          }}
+        >
           <UserPlus size={16} /> Invite Team Member
         </button>
       </div>
@@ -192,32 +225,51 @@ export const ProjectTeamPage: React.FC = () => {
       {inviteModalOpen && (
         <Modal
           isOpen={inviteModalOpen}
-          onClose={() => setInviteModalOpen(false)}
+          onClose={() => {
+            setInviteModalOpen(false);
+            setErrors({});
+          }}
           title="Invite Project Collaborator"
         >
-          <form onSubmit={handleInviteSubmit}>
+          <form onSubmit={handleInviteSubmit} noValidate>
             <div className="form-group">
               <label className="form-label">Full Name *</label>
               <input
                 type="text"
-                required
                 placeholder="e.g. Meera Joshi"
                 className="form-input"
+                style={errors.name ? { borderColor: 'var(--confidence-low)' } : undefined}
                 value={inviteForm.name}
-                onChange={(e) => setInviteForm({ ...inviteForm, name: e.target.value })}
+                onChange={(e) => {
+                  setInviteForm({ ...inviteForm, name: e.target.value });
+                  if (errors.name) setErrors((prev) => ({ ...prev, name: undefined }));
+                }}
               />
+              {errors.name && (
+                <div style={{ color: 'var(--confidence-low)', fontSize: '12px', marginTop: '4px' }}>
+                  {errors.name}
+                </div>
+              )}
             </div>
 
             <div className="form-group">
               <label className="form-label">Work Email *</label>
               <input
                 type="email"
-                required
                 placeholder="m.joshi@contractor.in"
                 className="form-input"
+                style={errors.email ? { borderColor: 'var(--confidence-low)' } : undefined}
                 value={inviteForm.email}
-                onChange={(e) => setInviteForm({ ...inviteForm, email: e.target.value })}
+                onChange={(e) => {
+                  setInviteForm({ ...inviteForm, email: e.target.value });
+                  if (errors.email) setErrors((prev) => ({ ...prev, email: undefined }));
+                }}
               />
+              {errors.email && (
+                <div style={{ color: 'var(--confidence-low)', fontSize: '12px', marginTop: '4px' }}>
+                  {errors.email}
+                </div>
+              )}
             </div>
 
             <div className="form-group">
@@ -235,7 +287,14 @@ export const ProjectTeamPage: React.FC = () => {
             </div>
 
             <div className="modal-footer">
-              <button type="button" className="btn btn-secondary" onClick={() => setInviteModalOpen(false)}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => {
+                  setInviteModalOpen(false);
+                  setErrors({});
+                }}
+              >
                 Cancel
               </button>
               <button type="submit" className="btn btn-primary">

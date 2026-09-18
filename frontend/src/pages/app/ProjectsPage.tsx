@@ -78,7 +78,7 @@ export const ProjectsPage: React.FC = () => {
         }}
       >
         {/* Search */}
-        <div style={{ position: 'relative', width: '320px' }}>
+        <div style={{ position: 'relative', width: '320px', maxWidth: '100%' }}>
           <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
           <input
             type="text"
@@ -126,15 +126,8 @@ export const ProjectsPage: React.FC = () => {
           {filteredProjects.map((proj) => (
             <div
               key={proj.id}
-              className="glass-card"
-              style={{
-                padding: '24px 28px',
-                display: 'grid',
-                gridTemplateColumns: '1.8fr 1fr 1fr 1fr auto',
-                gap: '24px',
-                alignItems: 'center',
-                cursor: 'pointer',
-              }}
+              className="glass-card project-row-card"
+              style={{ padding: '24px 28px' }}
               onClick={() => {
                 setActiveProjectId(proj.id);
                 navigate(`/projects/${proj.id}/overview`);

@@ -23,8 +23,9 @@ import { LoadingSkeleton } from '../../components/common/LoadingSkeleton';
 
 export const PortfolioDashboardPage: React.FC = () => {
   const { profile } = useAuth();
-  const { setActiveProjectId } = useProject();
+  const { activeProject, setActiveProjectId } = useProject();
   const navigate = useNavigate();
+  const targetProjectId = activeProject?.id || 'proj-01';
 
   const [loading, setLoading] = useState(true);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -98,13 +99,13 @@ export const PortfolioDashboardPage: React.FC = () => {
           <Link to="/projects/new" className="btn btn-primary btn-sm">
             <FolderPlus size={15} /> New Project
           </Link>
-          <Link to="/projects/proj-01/reports/upload" className="btn btn-secondary btn-sm">
+          <Link to={`/projects/${targetProjectId}/reports/upload`} className="btn btn-secondary btn-sm">
             <UploadCloud size={15} /> Upload Daily Log
           </Link>
-          <Link to="/projects/proj-01/schedule" className="btn btn-secondary btn-sm">
+          <Link to={`/projects/${targetProjectId}/schedule`} className="btn btn-secondary btn-sm">
             <CalendarRange size={15} /> Import Schedule
           </Link>
-          <Link to="/projects/proj-01/review" className="btn btn-secondary btn-sm">
+          <Link to={`/projects/${targetProjectId}/review`} className="btn btn-secondary btn-sm">
             <GitCompare size={15} /> Review Matches ({pendingReviewCount})
           </Link>
         </div>
@@ -158,7 +159,7 @@ export const PortfolioDashboardPage: React.FC = () => {
       </div>
 
       {/* 3. Main 2-Column Area: Projects & Reconciliation Health */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr', gap: '24px' }}>
+      <div className="dashboard-grid-main">
         {/* Left Column: Recent Projects */}
         <div className="glass-card" style={{ padding: '24px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
@@ -266,7 +267,7 @@ export const PortfolioDashboardPage: React.FC = () => {
             <p style={{ fontSize: '12px', color: 'var(--text-muted)', lineHeight: 1.5 }}>
               Resolving the {pendingReviewCount} pending review candidates will raise overall baseline schedule alignment.
             </p>
-            <Link to="/projects/proj-01/review" className="btn btn-primary btn-sm" style={{ marginTop: '10px', width: '100%' }}>
+            <Link to={`/projects/${targetProjectId}/review`} className="btn btn-primary btn-sm" style={{ marginTop: '10px', width: '100%' }}>
               Open Review Queue
             </Link>
           </div>
@@ -274,12 +275,12 @@ export const PortfolioDashboardPage: React.FC = () => {
       </div>
 
       {/* 4. Bottom Area: Pending Reviews & Recent Activity Feed */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '24px' }}>
+      <div className="dashboard-grid-sub">
         {/* Pending Reviews Table */}
         <div className="glass-card" style={{ padding: '24px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
             <h2 style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-primary)' }}>Pending Reviews Queue</h2>
-            <Link to="/projects/proj-01/review" style={{ fontSize: '12px', color: 'var(--accent-blue)', textDecoration: 'none' }}>
+            <Link to={`/projects/${targetProjectId}/review`} style={{ fontSize: '12px', color: 'var(--accent-blue)', textDecoration: 'none' }}>
               View Queue →
             </Link>
           </div>
@@ -308,7 +309,7 @@ export const PortfolioDashboardPage: React.FC = () => {
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                   <span className="confidence-badge review">{(item.confidence_score * 100).toFixed(1)}%</span>
-                  <Link to={`/projects/proj-01/review`} className="btn btn-secondary btn-sm" style={{ padding: '4px 8px' }}>
+                  <Link to={`/projects/${targetProjectId}/review`} className="btn btn-secondary btn-sm" style={{ padding: '4px 8px' }}>
                     Review
                   </Link>
                 </div>
@@ -321,7 +322,7 @@ export const PortfolioDashboardPage: React.FC = () => {
         <div className="glass-card" style={{ padding: '24px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
             <h2 style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-primary)' }}>Recent System Activity</h2>
-            <Link to="/projects/proj-01/audit" style={{ fontSize: '12px', color: 'var(--accent-blue)', textDecoration: 'none' }}>
+            <Link to={`/projects/${targetProjectId}/audit`} style={{ fontSize: '12px', color: 'var(--accent-blue)', textDecoration: 'none' }}>
               Full Audit Trail →
             </Link>
           </div>

@@ -174,7 +174,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({ isOpen, on
         display: 'flex',
         alignItems: 'flex-start',
         justifyContent: 'center',
-        paddingTop: '10vh',
+        padding: '10vh 16px 20px',
       }}
       onClick={onClose}
     >
@@ -223,6 +223,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({ isOpen, on
             type="button"
             className="btn btn-ghost btn-sm"
             onClick={onClose}
+            aria-label="Close search"
             style={{ padding: '4px', color: 'var(--text-muted)' }}
           >
             <X size={18} />
