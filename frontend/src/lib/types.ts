@@ -119,28 +119,48 @@ export interface AuditTrailEntry {
   actor_profile?: UserProfile;
 }
 
-// API Responses
-export interface UploadResponse {
-  extraction_id: string;
-  file_url: string;
-  status: 'pending';
+export interface ConfirmResponse {
+  match_id: string;
+  status: 'confirmed';
 }
 
-export interface ExtractionResponse {
-  extraction_id: string;
-  activities_count: number;
-  activities: ExtractedActivity[];
-  status: string;
+export interface RejectResponse {
+  match_id: string;
+  status: 'rejected';
 }
 
-export interface MatchResponse {
-  status: 'auto_linked' | 'pending_review' | 'unmatched';
-  extracted_activity_id: string;
-  match_id?: string;
-  plan_activity_id?: string;
-  confidence_score?: number;
-  candidates?: CandidateMatch[];
+export interface ReassignResponse {
+  match_id: string;
+  plan_activity_id: string;
+  status: 'confirmed';
+  resolved_by: string | null;
 }
+
+export interface MatchesBreakdown {
+  auto_linked: number;
+  pending_review: number;
+  confirmed: number;
+  rejected: number;
+}
+
+export interface UnmatchedBreakdown {
+  unresolved: number;
+  marked_new_activity: number;
+  manually_linked: number;
+}
+
+export interface AnalyticsOut {
+  total_planned_activities: number;
+  total_extractions: number;
+  total_extracted_activities: number;
+  total_matches: number;
+  matches_by_status: MatchesBreakdown;
+  total_unmatched: number;
+  unmatched_by_resolution: UnmatchedBreakdown;
+  total_audit_events: number;
+  average_match_confidence: number | null;
+}
+
 
 // =============================================================================
 // Project, Report, Team & Analytics Models (Phase 1)

@@ -5,7 +5,7 @@ import {
   Download,
   UploadCloud,
 } from 'lucide-react';
-import { apiService } from '../../api/apiService';
+import { apiClient } from '../../lib/apiClient';
 import { SchedulePlanItem } from '../../lib/types';
 import { LoadingSkeleton } from '../../components/common/LoadingSkeleton';
 import { EmptyState } from '../../components/common/EmptyState';
@@ -34,10 +34,14 @@ export const ProjectSchedulePage: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const data = await apiService.getSchedule(projectId, selectedDiscipline);
+      const params: { discipline?: string } = {};
+      if (selectedDiscipline && selectedDiscipline !== 'all') {
+        params.discipline = selectedDiscipline;
+      }
+      const data = await apiClient.getSchedule(params);
       setSchedule(data);
     } catch (err: any) {
-      console.error('Failed to load schedule', err);
+      console.error('Failed to load schedule from backend API', err);
       setError(err?.message || 'Failed to load baseline schedule.');
     } finally {
       setLoading(false);
@@ -47,6 +51,7 @@ export const ProjectSchedulePage: React.FC = () => {
   useEffect(() => {
     loadSchedule();
   }, [projectId, selectedDiscipline]);
+
 
   const filtered = schedule.filter((item) => {
     const term = search.toLowerCase();
