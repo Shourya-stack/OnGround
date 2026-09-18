@@ -106,6 +106,101 @@ class TestRoutes(unittest.TestCase):
         )
         self.assertEqual(supervisor_resp.status_code, 403)
 
+    # =========================================================================
+    # Step 5.1 Read / Query Endpoint Tests
+    # =========================================================================
+
+    def test_get_schedule_endpoint(self):
+        response = self.client.get("/schedule")
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIsInstance(data, list)
+
+    def test_get_schedule_with_filters(self):
+        pid = uuid4()
+        response = self.client.get(f"/schedule?project_id={pid}&discipline=piping&limit=10&offset=0")
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIsInstance(data, list)
+
+    def test_get_reports_endpoint(self):
+        response = self.client.get("/reports")
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIsInstance(data, list)
+
+    def test_get_reports_with_filters(self):
+        pid = uuid4()
+        response = self.client.get(f"/reports?project_id={pid}&status=complete&limit=5&offset=0")
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIsInstance(data, list)
+
+    def test_get_matches_endpoint(self):
+        response = self.client.get("/matches")
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIsInstance(data, list)
+
+    def test_get_matches_with_filters(self):
+        pid = uuid4()
+        response = self.client.get(f"/matches?project_id={pid}&status=pending_review&discipline=piping&limit=10&offset=0")
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIsInstance(data, list)
+
+    def test_get_unmatched_endpoint(self):
+        response = self.client.get("/unmatched")
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIsInstance(data, list)
+
+    def test_get_unmatched_with_filters(self):
+        response = self.client.get("/unmatched?resolution=unresolved&limit=10&offset=0")
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIsInstance(data, list)
+
+    def test_get_audit_endpoint(self):
+        response = self.client.get("/audit")
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIsInstance(data, list)
+
+    def test_get_audit_with_filters(self):
+        actor_id = uuid4()
+        response = self.client.get(f"/audit?action=confirmed&actor={actor_id}&limit=10&offset=0")
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIsInstance(data, list)
+
+    def test_get_analytics_endpoint(self):
+        response = self.client.get("/analytics")
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIn("total_planned_activities", data)
+        self.assertIn("total_extractions", data)
+        self.assertIn("total_extracted_activities", data)
+        self.assertIn("total_matches", data)
+        self.assertIn("matches_by_status", data)
+        self.assertIn("total_unmatched", data)
+        self.assertIn("unmatched_by_resolution", data)
+        self.assertIn("total_audit_events", data)
+        self.assertIn("auto_linked", data["matches_by_status"])
+        self.assertIn("pending_review", data["matches_by_status"])
+        self.assertIn("confirmed", data["matches_by_status"])
+        self.assertIn("rejected", data["matches_by_status"])
+        self.assertIn("unresolved", data["unmatched_by_resolution"])
+
+    def test_get_analytics_with_project_filter(self):
+        pid = uuid4()
+        response = self.client.get(f"/analytics?project_id={pid}")
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIn("total_planned_activities", data)
+        self.assertIsInstance(data["total_planned_activities"], int)
+
 
 if __name__ == "__main__":
     unittest.main()
+

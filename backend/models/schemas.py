@@ -118,3 +118,106 @@ class RejectRequest(BaseModel):
 class RejectResponse(BaseModel):
     match_id: UUID
     status: str = "rejected"
+
+
+# =============================================================================
+# Read / Query Schemas (Step 5.1)
+# =============================================================================
+
+class SchedulePlanItemOut(BaseModel):
+    id: UUID
+    project_id: UUID
+    activity_code: str
+    activity_description: str
+    discipline: str
+    planned_start: date
+    planned_end: date
+    created_at: Optional[datetime] = None
+
+
+class ReportItemOut(BaseModel):
+    id: UUID
+    project_id: UUID
+    file_url: str
+    file_type: Optional[str] = None
+    status: str
+    uploaded_by: Optional[UUID] = None
+    created_at: Optional[datetime] = None
+
+
+class ExtractedActivityContext(BaseModel):
+    id: UUID
+    activity_description: str
+    discipline: Optional[str] = None
+    extraction_confidence: float
+    start_time: Optional[datetime] = None
+    end_time: Optional[datetime] = None
+    location_reference: Optional[str] = None
+
+
+class SchedulePlanContext(BaseModel):
+    id: UUID
+    project_id: UUID
+    activity_code: str
+    activity_description: str
+    discipline: str
+    planned_start: date
+    planned_end: date
+
+
+class ScheduleMatchOut(BaseModel):
+    id: UUID
+    extracted_activity_id: UUID
+    plan_activity_id: UUID
+    confidence_score: float
+    status: str
+    resolved_by: Optional[UUID] = None
+    candidates: Optional[List[Dict[str, Any]]] = None
+    created_at: Optional[datetime] = None
+    extracted_activity: Optional[ExtractedActivityContext] = None
+    schedule_plan: Optional[SchedulePlanContext] = None
+
+
+class UnmatchedActivityOut(BaseModel):
+    id: UUID
+    extracted_activity_id: UUID
+    best_score: Optional[float] = None
+    resolution: str = "unresolved"
+    created_at: Optional[datetime] = None
+    extracted_activity: Optional[ExtractedActivityContext] = None
+
+
+class AuditTrailOut(BaseModel):
+    id: UUID
+    related_match_id: Optional[UUID] = None
+    related_unmatched_id: Optional[UUID] = None
+    action: str
+    confidence_score: Optional[float] = None
+    actor: Optional[UUID] = None
+    created_at: datetime
+
+
+class MatchesBreakdown(BaseModel):
+    auto_linked: int = 0
+    pending_review: int = 0
+    confirmed: int = 0
+    rejected: int = 0
+
+
+class UnmatchedBreakdown(BaseModel):
+    unresolved: int = 0
+    marked_new_activity: int = 0
+    manually_linked: int = 0
+
+
+class AnalyticsOut(BaseModel):
+    total_planned_activities: int = 0
+    total_extractions: int = 0
+    total_extracted_activities: int = 0
+    total_matches: int = 0
+    matches_by_status: MatchesBreakdown = Field(default_factory=MatchesBreakdown)
+    total_unmatched: int = 0
+    unmatched_by_resolution: UnmatchedBreakdown = Field(default_factory=UnmatchedBreakdown)
+    total_audit_events: int = 0
+    average_match_confidence: Optional[float] = None
+

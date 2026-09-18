@@ -15,6 +15,10 @@ from backend.routes.upload import router as upload_router
 from backend.routes.extract import router as extract_router
 from backend.routes.match import router as match_router
 from backend.routes.review import router as review_router
+from backend.routes.schedule import router as schedule_router
+from backend.routes.reports import router as reports_router
+from backend.routes.audit import router as audit_router
+from backend.routes.analytics import router as analytics_router
 
 # Load environment variables with override enabled
 load_dotenv(override=True)
@@ -79,6 +83,11 @@ app.include_router(upload_router)
 app.include_router(extract_router)
 app.include_router(match_router)
 app.include_router(review_router)
+app.include_router(schedule_router)
+app.include_router(reports_router)
+app.include_router(audit_router)
+app.include_router(analytics_router)
+
 
 
 if __name__ == "__main__":
