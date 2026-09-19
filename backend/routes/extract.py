@@ -99,10 +99,16 @@ async def extract_activities(
         elif supabase and extraction_record:
             try:
                 file_url = extraction_record.get("file_url", "")
-                if "reports/" in file_url:
-                    storage_path = file_url.split("reports/")[-1]
-                    filename = storage_path.split("/")[-1]
-                    file_bytes = supabase.storage.from_("reports").download(storage_path)
+                prefix = "/storage/v1/object/reports/"
+                if file_url.startswith(prefix):
+                    storage_path = file_url[len(prefix):]
+                elif "reports/" in file_url:
+                    storage_path = file_url.split("reports/", 1)[1]
+                else:
+                    storage_path = file_url
+
+                filename = storage_path.split("/")[-1]
+                file_bytes = supabase.storage.from_("reports").download(storage_path)
             except Exception as e:
                 logger.error(f"Failed to download file from Supabase Storage: {e}")
                 _mark_failed()

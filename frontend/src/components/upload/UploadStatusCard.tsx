@@ -36,6 +36,7 @@ export const UploadStatusCard: React.FC<UploadStatusCardProps> = ({
     const targetIndex = order.indexOf(stepKey);
 
     if (step === 'failed') return 'error';
+    if (step === 'completed') return 'complete';
     if (currentIndex > targetIndex) return 'complete';
     if (currentIndex === targetIndex) return 'active';
     return 'pending';
