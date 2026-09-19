@@ -139,7 +139,7 @@ export const ProjectUploadPage: React.FC = () => {
 
       {/* Upload Box / Status Card */}
       {pipelineStep === 'idle' ? (
-        <div className="glass-card" style={{ padding: '36px' }}>
+        <div className="bionis-card bionis-card-glow-blue" style={{ padding: '36px' }}>
           <UploadDropzone onFileSelect={handleFileSelect} isUploading={false} />
 
           <div style={{ marginTop: '24px', display: 'flex', gap: '16px', justifyContent: 'center', flexWrap: 'wrap', color: 'var(--text-muted)', fontSize: '12px' }}>
@@ -149,7 +149,7 @@ export const ProjectUploadPage: React.FC = () => {
           </div>
         </div>
       ) : (
-        <div className="glass-card" style={{ padding: '36px' }}>
+        <div className="bionis-card bionis-card-glow-blue" style={{ padding: '36px' }}>
           <UploadStatusCard
             step={pipelineStep}
             fileName={currentFileName}

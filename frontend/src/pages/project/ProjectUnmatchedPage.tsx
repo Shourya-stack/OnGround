@@ -102,7 +102,7 @@ export const ProjectUnmatchedPage: React.FC = () => {
       </div>
 
       {/* Filter Bar */}
-      <div className="glass-card" style={{ padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div className="bionis-card" style={{ padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div style={{ position: 'relative', width: '320px', maxWidth: '100%' }}>
           <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
           <input

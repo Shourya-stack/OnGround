@@ -127,7 +127,7 @@ export const ProjectProcessingPage: React.FC = () => {
       </div>
 
       {/* Main Pipeline Card */}
-      <div className="glass-card" style={{ padding: '32px' }}>
+      <div className="bionis-card bionis-card-glow-blue" style={{ padding: '32px' }}>
         {/* Top bar */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', marginBottom: '20px' }}>
           <div>

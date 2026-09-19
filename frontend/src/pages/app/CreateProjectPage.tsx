@@ -148,7 +148,7 @@ export const CreateProjectPage: React.FC = () => {
 
       {/* Step Progress Tracker */}
       <div
-        className="glass-card"
+        className="bionis-card"
         style={{
           padding: '16px 24px',
           marginBottom: '28px',
@@ -210,7 +210,7 @@ export const CreateProjectPage: React.FC = () => {
       </div>
 
       {/* Step Content Card */}
-      <div className="glass-card" style={{ padding: '36px' }}>
+      <div className="bionis-card bionis-card-glow-blue" style={{ padding: '36px' }}>
         {/* Step 1: Project Info */}
         {step === 1 && (
           <div>

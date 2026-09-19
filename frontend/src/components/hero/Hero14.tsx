@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { motion, type Variants } from 'motion/react';
 import heroBgImage from '../../assets/hero-bg.jpg';
+import { ThemeToggle } from '../common/ThemeToggle';
 import './Hero14.css';
 
 interface NavItem {
@@ -179,6 +180,7 @@ export const Hero14: React.FC<Hero14Props> = ({
 
           {/* Nav Actions */}
           <div className="hero14-nav-actions">
+            <ThemeToggle size="sm" />
             <Link to="/login" className="hero14-nav-login">
               Log in
             </Link>

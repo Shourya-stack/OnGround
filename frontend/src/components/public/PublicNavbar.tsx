@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, NavLink } from 'react-router-dom';
 import { Layers, Menu, X } from 'lucide-react';
+import { ThemeToggle } from '../common/ThemeToggle';
 
 export const PublicNavbar: React.FC = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -36,7 +37,8 @@ export const PublicNavbar: React.FC = () => {
         </nav>
 
         {/* Action CTAs */}
-        <div className="public-nav-actions">
+        <div className="public-nav-actions" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <ThemeToggle size="sm" />
           <Link to="/login" className="btn btn-ghost btn-sm">
             Log in
           </Link>

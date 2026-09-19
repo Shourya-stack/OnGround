@@ -101,7 +101,7 @@ export const ProjectReportsPage: React.FC = () => {
 
       {/* Filter Bar */}
       <div
-        className="glass-card"
+        className="bionis-card"
         style={{
           padding: '16px 20px',
           display: 'flex',

@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Layers, Shield, ShieldAlert, ArrowRight, AlertCircle } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { UserRole } from '../../lib/types';
+import { ThemeToggle } from '../../components/common/ThemeToggle';
 
 export const LoginPage: React.FC = () => {
   const { signIn } = useAuth();
@@ -33,14 +34,17 @@ export const LoginPage: React.FC = () => {
   };
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px', backgroundColor: 'var(--bg-primary)' }}>
-      <div className="glass-card" style={{ maxWidth: '440px', width: '100%', padding: '36px' }}>
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px', backgroundColor: 'var(--bg-primary)', position: 'relative' }}>
+      <div style={{ position: 'absolute', top: 20, right: 24 }}>
+        <ThemeToggle size="sm" />
+      </div>
+      <div className="bionis-card bionis-card-glow-blue" style={{ maxWidth: '440px', width: '100%', padding: '36px' }}>
         {/* Brand */}
         <div style={{ textAlign: 'center', marginBottom: '28px' }}>
           <Link to="/" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '48px', height: '48px', margin: '0 auto 12px', background: 'linear-gradient(135deg, #0284c7, #38bdf8)', borderRadius: '12px', color: '#ffffff', textDecoration: 'none' }}>
             <Layers size={26} />
           </Link>
-          <h1 style={{ fontSize: '1.4rem', fontWeight: 700, color: '#ffffff', marginBottom: '4px' }}>Sign in to OnGround</h1>
+          <h1 style={{ fontSize: '1.4rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '4px' }}>Sign in to OnGround</h1>
           <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>Infrastructure Progress & Schedule Intelligence</p>
         </div>
 
@@ -61,10 +65,10 @@ export const LoginPage: React.FC = () => {
               lineHeight: 1.4,
             }}
           >
-            <AlertCircle size={18} style={{ flexShrink: 0, color: '#ef4444', marginTop: '2px' }} />
+            <AlertCircle size={18} style={{ flexShrink: 0, color: 'var(--confidence-low)', marginTop: '2px' }} />
             <div>
-              <div style={{ fontWeight: 600, color: '#ffffff', marginBottom: '2px' }}>Session Expired</div>
-              <div>Your session has expired. Please sign in again.</div>
+              <div style={{ fontWeight: 600, color: 'var(--text-primary)', marginBottom: '2px' }}>Session Expired</div>
+              <div style={{ color: 'var(--text-secondary)' }}>Your session has expired. Please sign in again.</div>
             </div>
           </div>
         )}
@@ -75,21 +79,20 @@ export const LoginPage: React.FC = () => {
             style={{
               marginBottom: '20px',
               padding: '12px 16px',
-              backgroundColor: 'rgba(239, 68, 68, 0.12)',
-              border: '1px solid rgba(239, 68, 68, 0.35)',
+              backgroundColor: 'var(--confidence-low-bg)',
+              border: '1px solid var(--confidence-low-border)',
               borderRadius: '8px',
               display: 'flex',
               alignItems: 'flex-start',
               gap: '10px',
-              color: '#fca5a5',
               fontSize: '13px',
               lineHeight: 1.4,
             }}
           >
-            <AlertCircle size={18} style={{ flexShrink: 0, color: '#ef4444', marginTop: '2px' }} />
+            <AlertCircle size={18} style={{ flexShrink: 0, color: 'var(--confidence-low)', marginTop: '2px' }} />
             <div>
-              <div style={{ fontWeight: 600, color: '#ffffff', marginBottom: '2px' }}>Authentication Error</div>
-              <div>{authError}</div>
+              <div style={{ fontWeight: 600, color: 'var(--text-primary)', marginBottom: '2px' }}>Authentication Error</div>
+              <div style={{ color: 'var(--confidence-low)' }}>{authError}</div>
             </div>
           </div>
         )}

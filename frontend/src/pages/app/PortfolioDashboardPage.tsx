@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   FolderGit2,
@@ -10,7 +10,6 @@ import {
   CalendarRange,
   ArrowRight,
   CheckCircle2,
-  Clock,
   ChevronRight,
   Sparkles,
 } from 'lucide-react';
@@ -20,12 +19,26 @@ import { apiService } from '../../api/apiService';
 import { Project, ReportItem, ScheduleMatch, AuditTrailEntry } from '../../lib/types';
 import { ProgressBar } from '../../components/ui/ProgressBar';
 import { LoadingSkeleton } from '../../components/common/LoadingSkeleton';
+import { KPICard } from '../../components/common/KPICard';
+import { ScoreDonut } from '../../components/common/ScoreDonut';
+
+function useGreeting(fullName: string) {
+  return useMemo(() => {
+    const hour = new Date().getHours();
+    const firstName = fullName.split(' ')[0] || fullName;
+    if (hour < 12) return `Good Morning, ${firstName}`;
+    if (hour < 18) return `Good Afternoon, ${firstName}`;
+    return `Good Evening, ${firstName}`;
+  }, [fullName]);
+}
 
 export const PortfolioDashboardPage: React.FC = () => {
   const { profile } = useAuth();
   const { activeProject, setActiveProjectId } = useProject();
   const navigate = useNavigate();
   const targetProjectId = activeProject?.id || 'proj-01';
+
+  const greeting = useGreeting(profile?.full_name || 'Planner');
 
   const [loading, setLoading] = useState(true);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -66,113 +79,190 @@ export const PortfolioDashboardPage: React.FC = () => {
   const pendingReviewCount = matches.filter((m) => m.status === 'pending_review').length;
   const pendingReviewsList = matches.filter((m) => m.status === 'pending_review');
 
+  const overallHealth = totalMatches > 0 ? Math.round((autoLinkedCount / totalMatches) * 100) : 92;
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
-      {/* 1. Header Banner */}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+      {/* 1. Header Banner & Actions */}
       <div
         style={{
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
           flexWrap: 'wrap',
-          gap: '20px',
-          background: 'linear-gradient(135deg, rgba(56, 189, 248, 0.12) 0%, rgba(99, 102, 241, 0.08) 100%)',
-          border: '1px solid rgba(56, 189, 248, 0.25)',
-          padding: '24px 28px',
-          borderRadius: 'var(--radius-lg)',
+          gap: '1rem',
         }}
       >
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-            <span style={{ fontSize: '13px', color: 'var(--accent-blue)', fontWeight: 600 }}>EXECUTIVE COMMAND CENTER</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+            <span
+              style={{
+                fontSize: '11px',
+                fontWeight: 700,
+                padding: '2px 8px',
+                borderRadius: '4px',
+                backgroundColor: 'rgba(56, 189, 248, 0.15)',
+                color: 'var(--accent-blue)',
+                fontFamily: 'var(--font-mono)',
+              }}
+            >
+              COMMAND CENTER
+            </span>
+            <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>• Portfolio Oversight</span>
           </div>
-          <h1 style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>
-            Good morning, {profile?.full_name?.split(' ')[0] || 'Planner'}
+          <h1 style={{ fontSize: '1.75rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0, letterSpacing: '-0.02em' }}>
+            {greeting}
           </h1>
-          <p style={{ color: 'var(--text-muted)', fontSize: '14px', marginTop: '4px' }}>
-            Multi-project infrastructure progress reconciliation and baseline schedule alignment overview.
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', margin: '4px 0 0 0' }}>
+            Multi-project infrastructure progress intelligence and baseline schedule alignment overview.
           </p>
         </div>
 
         {/* Quick Action Buttons */}
-        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-          <Link to="/projects/new" className="btn btn-primary btn-sm">
+        <div style={{ display: 'flex', gap: '0.65rem', flexWrap: 'wrap' }}>
+          <Link to="/projects/new" className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '6px', textDecoration: 'none' }}>
             <FolderPlus size={15} /> New Project
           </Link>
-          <Link to={`/projects/${targetProjectId}/reports/upload`} className="btn btn-secondary btn-sm">
+          <Link to={`/projects/${targetProjectId}/reports/upload`} className="btn btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '6px', textDecoration: 'none' }}>
             <UploadCloud size={15} /> Upload Daily Log
           </Link>
-          <Link to={`/projects/${targetProjectId}/schedule`} className="btn btn-secondary btn-sm">
-            <CalendarRange size={15} /> Import Schedule
+          <Link to={`/projects/${targetProjectId}/schedule`} className="btn btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '6px', textDecoration: 'none' }}>
+            <CalendarRange size={15} /> Baseline WBS
           </Link>
-          <Link to={`/projects/${targetProjectId}/review`} className="btn btn-secondary btn-sm">
-            <GitCompare size={15} /> Review Matches ({pendingReviewCount})
+          <Link to={`/projects/${targetProjectId}/review`} className="btn btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '6px', textDecoration: 'none' }}>
+            <GitCompare size={15} /> Review Queue ({pendingReviewCount})
           </Link>
         </div>
       </div>
 
-      {/* 2. Top KPI Cards */}
-      <div className="grid-4">
-        <div className="glass-card" style={{ padding: '20px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-            <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)' }}>ACTIVE PROJECTS</span>
-            <div style={{ padding: '6px', borderRadius: '8px', backgroundColor: 'rgba(56, 189, 248, 0.1)', color: 'var(--accent-blue)' }}>
-              <FolderGit2 size={18} />
-            </div>
+      {/* 2. Bionis Reference "Overall Wellness" Section -> Adapted to Portfolio Health */}
+      <section
+        className="bionis-card bionis-card-glow-blue"
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '1.5rem',
+          padding: '1.5rem 2rem',
+        }}
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', maxWidth: '640px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+            <span
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.35rem',
+                fontSize: '0.75rem',
+                fontWeight: 600,
+                padding: '0.25rem 0.75rem',
+                borderRadius: 'var(--radius-md)',
+                backgroundColor: 'rgba(16, 185, 129, 0.12)',
+                color: 'var(--confidence-high)',
+              }}
+            >
+              <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: 'var(--confidence-high)' }} />
+              PORTFOLIO STABLE
+            </span>
+            <span className="bionis-insight-badge">
+              <Sparkles size={12} color="var(--accent-blue)" />
+              {projects.length} Active Sites
+            </span>
           </div>
-          <div style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--text-primary)' }}>{projects.length}</div>
-          <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px' }}>Across 3 industrial zones</div>
+
+          <h2 style={{ fontSize: '1.25rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
+            Enterprise Schedule Ingestion & Alignment
+          </h2>
+
+          <p style={{ fontSize: '0.9rem', lineHeight: 1.5, color: 'var(--text-secondary)', margin: 0 }}>
+            Across all active projects, <strong style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{totalReports} daily progress logs</strong> have been ingested and reconciled with <strong style={{ color: 'var(--confidence-high)', fontWeight: 600 }}>{autoLinkedCount} automated schedule links</strong>. Only {pendingReviewCount} items currently require human planner confirmation.
+          </p>
         </div>
 
-        <div className="glass-card" style={{ padding: '20px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-            <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)' }}>REPORTS PROCESSED</span>
-            <div style={{ padding: '6px', borderRadius: '8px', backgroundColor: 'rgba(99, 102, 241, 0.1)', color: 'var(--accent-indigo)' }}>
-              <FileText size={18} />
-            </div>
-          </div>
-          <div style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--text-primary)' }}>{totalReports}</div>
-          <div style={{ fontSize: '12px', color: 'var(--confidence-high)', marginTop: '4px' }}>PDF, XLSX, CSV & TXT</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', flexShrink: 0 }}>
+          <ScoreDonut
+            value={overallHealth}
+            max={100}
+            label="Integrity"
+            sublabel="Auto-Linked"
+            size={120}
+            color="var(--accent-blue)"
+          />
         </div>
+      </section>
 
-        <div className="glass-card" style={{ padding: '20px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-            <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)' }}>ACTIVITIES MATCHED</span>
-            <div style={{ padding: '6px', borderRadius: '8px', backgroundColor: 'rgba(16, 185, 129, 0.1)', color: 'var(--confidence-high)' }}>
-              <CheckCircle2 size={18} />
-            </div>
-          </div>
-          <div style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--confidence-high)' }}>{autoLinkedCount}</div>
-          <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px' }}>Linked to Primavera WBS</div>
-        </div>
+      {/* 3. 4 Bionis Key Metric Cards */}
+      <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
+        <KPICard
+          title="Active Projects"
+          value={projects.length}
+          unit="sites"
+          icon={FolderGit2}
+          variant="primary"
+          trend={{
+            value: `${projects.length} live`,
+            isPositive: true,
+            label: 'across all regions',
+          }}
+        />
+        <KPICard
+          title="Reports Processed"
+          value={totalReports}
+          unit="logs"
+          icon={FileText}
+          variant="info"
+          trend={{
+            value: 'PDF & Excel',
+            isPositive: true,
+            label: 'automated OCR/LLM',
+          }}
+        />
+        <KPICard
+          title="Activities Matched"
+          value={autoLinkedCount}
+          unit="tasks"
+          icon={CheckCircle2}
+          variant="success"
+          trend={{
+            value: `${overallHealth}%`,
+            isPositive: true,
+            label: 'semantic certainty',
+          }}
+        />
+        <KPICard
+          title="Needs Review"
+          value={pendingReviewCount}
+          unit="items"
+          icon={AlertTriangle}
+          variant={pendingReviewCount > 0 ? 'warning' : 'success'}
+          trend={{
+            value: pendingReviewCount > 0 ? `${pendingReviewCount} pending` : 'Zero backlog',
+            isPositive: pendingReviewCount === 0,
+            label: pendingReviewCount > 0 ? 'human check required' : 'all verified',
+          }}
+        />
+      </section>
 
-        <div className="glass-card" style={{ padding: '20px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-            <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)' }}>NEEDS HUMAN REVIEW</span>
-            <div style={{ padding: '6px', borderRadius: '8px', backgroundColor: 'rgba(245, 158, 11, 0.1)', color: 'var(--confidence-review)' }}>
-              <AlertTriangle size={18} />
-            </div>
-          </div>
-          <div style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--confidence-review)' }}>{pendingReviewCount}</div>
-          <div style={{ fontSize: '12px', color: 'var(--confidence-review)', marginTop: '4px' }}>Awaiting planner confirmation</div>
-        </div>
-      </div>
-
-      {/* 3. Main 2-Column Area: Projects & Reconciliation Health */}
-      <div className="dashboard-grid-main">
-        {/* Left Column: Recent Projects */}
-        <div className="glass-card" style={{ padding: '24px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+      {/* 4. Main 2-Column Area: Projects & Review Queue */}
+      <div className="dashboard-grid-main" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(380px, 1fr))', gap: '1.5rem' }}>
+        {/* Left Column: Active Project Portfolios */}
+        <article className="bionis-card" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
-              <h2 style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-primary)' }}>Active Project Portfolios</h2>
-              <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>Click to enter dedicated project workspace</p>
+              <h2 style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
+                Active Project Portfolios
+              </h2>
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: '2px 0 0 0' }}>
+                Select a project to enter its dedicated execution workspace
+              </p>
             </div>
-            <Link to="/projects" className="btn btn-ghost btn-sm" style={{ color: 'var(--accent-blue)' }}>
-              View All Projects <ArrowRight size={14} />
+            <Link to="/projects" style={{ fontSize: '0.75rem', color: 'var(--accent-blue)', display: 'flex', alignItems: 'center', gap: '4px', textDecoration: 'none' }}>
+              View All <ArrowRight size={13} />
             </Link>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
             {projects.map((proj) => (
               <div
                 key={proj.id}
@@ -180,172 +270,140 @@ export const PortfolioDashboardPage: React.FC = () => {
                   setActiveProjectId(proj.id);
                   navigate(`/projects/${proj.id}/overview`);
                 }}
+                className="bionis-factor-row"
                 style={{
-                  backgroundColor: 'var(--bg-surface)',
-                  padding: '16px 20px',
-                  borderRadius: 'var(--radius-md)',
-                  border: '1px solid var(--border-subtle)',
                   cursor: 'pointer',
-                  transition: 'all 0.15s ease',
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
+                  padding: '1rem 1.15rem',
                 }}
               >
-                <div style={{ flex: 1, paddingRight: '20px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
-                    <h3 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
+                <div style={{ flex: 1, paddingRight: '1rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                    <h3 style={{ fontSize: '0.925rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
                       {proj.name}
                     </h3>
-                    <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', backgroundColor: 'rgba(56, 189, 248, 0.15)', color: 'var(--accent-blue)', fontFamily: 'var(--font-mono)' }}>
+                    <span
+                      style={{
+                        fontSize: '10px',
+                        padding: '1px 6px',
+                        borderRadius: '4px',
+                        backgroundColor: 'rgba(56, 189, 248, 0.15)',
+                        color: 'var(--accent-blue)',
+                        fontFamily: 'var(--font-mono)',
+                      }}
+                    >
                       {proj.code}
                     </span>
                   </div>
-                  <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '10px' }}>
-                    Client: {proj.client} • {proj.location} • Budget: {proj.budget}
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                    Client: {proj.client} • Location: {proj.location}
                   </div>
-                  <div style={{ maxWidth: '320px' }}>
-                    <ProgressBar progress={proj.progress} showLabel />
+                  <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div style={{ flex: 1 }}>
+                      <ProgressBar progress={proj.progress || 65} height="5px" color="var(--accent-blue)" />
+                    </div>
+                    <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                      {proj.progress || 65}%
+                    </span>
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-                  <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)' }}>
-                      {proj.matched_count} / {proj.activities_count}
-                    </div>
-                    <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Tasks Reconciled</div>
-                  </div>
-                  <ChevronRight size={18} style={{ color: 'var(--text-muted)' }} />
+                <div style={{ display: 'flex', alignItems: 'center', color: 'var(--text-muted)' }}>
+                  <ChevronRight size={18} />
                 </div>
               </div>
             ))}
           </div>
-        </div>
+        </article>
 
-        {/* Right Column: Reconciliation Health */}
-        <div className="glass-card" style={{ padding: '24px' }}>
-          <h2 style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '4px' }}>
-            Reconciliation Health
-          </h2>
-          <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '20px' }}>
-            Overall task reconciliation status across all ingested reports
-          </p>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            {/* Health Bars */}
+        {/* Right Column: Planner Review Queue & Audit Log */}
+        <article className="bionis-card bionis-card-glow-amber" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '6px' }}>
-                <span style={{ color: 'var(--confidence-high)', fontWeight: 600 }}>Matched & Confirmed</span>
-                <span style={{ fontWeight: 700 }}>{autoLinkedCount} ({totalMatches ? Math.round((autoLinkedCount / totalMatches) * 100) : 0}%)</span>
-              </div>
-              <ProgressBar progress={totalMatches ? Math.round((autoLinkedCount / totalMatches) * 100) : 0} color="var(--confidence-high)" />
+              <h2 style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
+                Pending Review Alerts
+              </h2>
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: '2px 0 0 0' }}>
+                Activities requiring human planner validation
+              </p>
             </div>
-
-            <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '6px' }}>
-                <span style={{ color: 'var(--confidence-review)', fontWeight: 600 }}>Needs Review</span>
-                <span style={{ fontWeight: 700 }}>{pendingReviewCount} ({totalMatches ? Math.round((pendingReviewCount / totalMatches) * 100) : 0}%)</span>
-              </div>
-              <ProgressBar progress={totalMatches ? Math.round((pendingReviewCount / totalMatches) * 100) : 0} color="var(--confidence-review)" />
-            </div>
-
-            <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '6px' }}>
-                <span style={{ color: 'var(--confidence-low)', fontWeight: 600 }}>Unmatched</span>
-                <span style={{ fontWeight: 700 }}>1 (7%)</span>
-              </div>
-              <ProgressBar progress={7} color="var(--confidence-low)" />
-            </div>
-          </div>
-
-          <div style={{ marginTop: '28px', padding: '16px', backgroundColor: 'var(--bg-surface)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-              <Sparkles size={16} style={{ color: 'var(--accent-blue)' }} />
-              <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>Reconciliation Tip</span>
-            </div>
-            <p style={{ fontSize: '12px', color: 'var(--text-muted)', lineHeight: 1.5 }}>
-              Resolving the {pendingReviewCount} pending review candidates will raise overall baseline schedule alignment.
-            </p>
-            <Link to={`/projects/${targetProjectId}/review`} className="btn btn-primary btn-sm" style={{ marginTop: '10px', width: '100%' }}>
-              Open Review Queue
-            </Link>
-          </div>
-        </div>
-      </div>
-
-      {/* 4. Bottom Area: Pending Reviews & Recent Activity Feed */}
-      <div className="dashboard-grid-sub">
-        {/* Pending Reviews Table */}
-        <div className="glass-card" style={{ padding: '24px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-            <h2 style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-primary)' }}>Pending Reviews Queue</h2>
-            <Link to={`/projects/${targetProjectId}/review`} style={{ fontSize: '12px', color: 'var(--accent-blue)', textDecoration: 'none' }}>
-              View Queue →
+            <Link
+              to={`/projects/${targetProjectId}/review`}
+              style={{ fontSize: '0.75rem', color: 'var(--accent-blue)', display: 'flex', alignItems: 'center', gap: '4px', textDecoration: 'none' }}
+            >
+              Open Queue <ArrowRight size={13} />
             </Link>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            {pendingReviewsList.slice(0, 3).map((item) => (
-              <div
-                key={item.id}
-                style={{
-                  padding: '12px 16px',
-                  backgroundColor: 'var(--bg-surface)',
-                  borderRadius: 'var(--radius-sm)',
-                  border: '1px solid var(--border-subtle)',
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                }}
-              >
-                <div>
-                  <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>
-                    {item.extracted_activity?.activity_description}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+            {pendingReviewsList.length > 0 ? (
+              pendingReviewsList.slice(0, 3).map((m) => (
+                <div
+                  key={m.id}
+                  style={{
+                    padding: '0.75rem 1rem',
+                    borderRadius: 'var(--radius-md)',
+                    background: 'var(--bg-surface-elevated)',
+                    border: '1px solid var(--border-subtle)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '4px',
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                      Match #{m.id.slice(0, 8)}
+                    </span>
+                    <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--chart-warn)' }}>
+                      {Math.round((m.confidence_score ?? 0.75) * 100)}% Match
+                    </span>
                   </div>
-                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                    Suggested: <strong style={{ color: 'var(--accent-blue)' }}>{item.schedule_plan?.activity_code}</strong> • {item.schedule_plan?.activity_description?.slice(0, 45)}...
-                  </div>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <span className="confidence-badge review">{(item.confidence_score * 100).toFixed(1)}%</span>
-                  <Link to={`/projects/${targetProjectId}/review`} className="btn btn-secondary btn-sm" style={{ padding: '4px 8px' }}>
-                    Review
+                  <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: 0 }}>
+                    Extracted task needs planner validation against schedule baseline.
+                  </p>
+                  <Link
+                    to={`/projects/${targetProjectId}/review/${m.id}`}
+                    style={{ fontSize: '0.75rem', color: 'var(--accent-blue)', marginTop: '4px', textDecoration: 'none' }}
+                  >
+                    Review Activity →
                   </Link>
                 </div>
+              ))
+            ) : (
+              <div
+                style={{
+                  padding: '1.5rem',
+                  textAlign: 'center',
+                  color: 'var(--text-muted)',
+                  fontSize: '0.85rem',
+                  borderRadius: 'var(--radius-md)',
+                  background: 'var(--bg-surface-elevated)',
+                }}
+              >
+                <CheckCircle2 size={24} color="var(--confidence-high)" style={{ margin: '0 auto 8px auto' }} />
+                <span>All matches confirmed across active projects!</span>
               </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Recent Activity Audit Feed */}
-        <div className="glass-card" style={{ padding: '24px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-            <h2 style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-primary)' }}>Recent System Activity</h2>
-            <Link to={`/projects/${targetProjectId}/audit`} style={{ fontSize: '12px', color: 'var(--accent-blue)', textDecoration: 'none' }}>
-              Full Audit Trail →
-            </Link>
+            )}
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {auditLogs.slice(0, 4).map((log) => (
-              <div key={log.id} style={{ display: 'flex', gap: '12px', alignItems: 'flex-start', fontSize: '13px' }}>
-                <div style={{ padding: '4px', borderRadius: '50%', backgroundColor: 'rgba(56, 189, 248, 0.15)', color: 'var(--accent-blue)', marginTop: '2px' }}>
-                  <Clock size={14} />
+          {/* Recent Audit Timeline preview */}
+          <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: '10px' }}>
+            <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+              Recent Audit Events
+            </span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '6px' }}>
+              {auditLogs.slice(0, 2).map((log) => (
+                <div key={log.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.75rem' }}>
+                  <span style={{ color: 'var(--text-secondary)' }}>
+                    Action: <strong style={{ color: 'var(--text-primary)' }}>{log.action}</strong>
+                  </span>
+                  <span style={{ color: 'var(--text-muted)' }}>
+                    {new Date(log.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </span>
                 </div>
-                <div>
-                  <div style={{ color: 'var(--text-primary)', fontWeight: 500 }}>
-                    <span style={{ fontWeight: 600, color: 'var(--accent-blue)' }}>{log.actor || 'System'}</span>{' '}
-                    {log.action === 'confirmed' ? 'confirmed schedule link' : log.action === 'flagged' ? 'flagged activity for review' : 'auto-linked activity'}
-                  </div>
-                  <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                    {new Date(log.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • Confidence: {((log.confidence_score || 0.9) * 100).toFixed(0)}%
-                  </div>
-                </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
+        </article>
       </div>
     </div>
   );

@@ -537,3 +537,110 @@
     filter: none !important;
   }
 }
+
+/* =============================================================================
+   Light Mode Theme for Hero14
+   ============================================================================= */
+[data-theme="light"] .hero14-section,
+html.light .hero14-section {
+  background-color: #f8fafc;
+  color: #0f172a;
+}
+
+[data-theme="light"] .hero14-wrapper,
+html.light .hero14-wrapper {
+  background-color: #f8fafc;
+  box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.08);
+}
+
+[data-theme="light"] .hero14-bg-image,
+html.light .hero14-bg-image {
+  opacity: 0.12;
+}
+
+[data-theme="light"] .hero14-bg-overlay-gradient,
+html.light .hero14-bg-overlay-gradient {
+  background: 
+    linear-gradient(to bottom, 
+      rgba(248, 250, 252, 0.88) 0%, 
+      rgba(248, 250, 252, 0.45) 30%, 
+      rgba(248, 250, 252, 0.75) 70%, 
+      rgba(248, 250, 252, 1) 100%),
+    radial-gradient(ellipse 80% 60% at 50% 20%, 
+      rgba(2, 132, 199, 0.08) 0%, 
+      transparent 70%);
+}
+
+[data-theme="light"] .hero14-nav,
+html.light .hero14-nav {
+  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+[data-theme="light"] .hero14-nav-brand-title,
+html.light .hero14-nav-brand-title {
+  color: #0f172a;
+}
+
+[data-theme="light"] .hero14-nav-link,
+html.light .hero14-nav-link {
+  color: #475569;
+}
+
+[data-theme="light"] .hero14-nav-link:hover,
+html.light .hero14-nav-link:hover {
+  color: #0f172a;
+}
+
+[data-theme="light"] .hero14-btn-demo,
+html.light .hero14-btn-demo {
+  background: #ffffff;
+  border-color: rgba(15, 23, 42, 0.12);
+  color: #0f172a;
+}
+
+[data-theme="light"] .hero14-btn-demo:hover,
+html.light .hero14-btn-demo:hover {
+  background: #f1f5f9;
+}
+
+[data-theme="light"] .hero14-title,
+html.light .hero14-title {
+  color: #0f172a;
+}
+
+[data-theme="light"] .hero14-subtitle,
+html.light .hero14-subtitle {
+  color: #475569;
+}
+
+[data-theme="light"] .hero14-btn-secondary,
+html.light .hero14-btn-secondary {
+  background: #ffffff;
+  border-color: rgba(15, 23, 42, 0.14);
+  color: #0f172a;
+}
+
+[data-theme="light"] .hero14-btn-secondary:hover,
+html.light .hero14-btn-secondary:hover {
+  background: #f8fafc;
+}
+
+[data-theme="light"] .hero14-strip-eyebrow,
+html.light .hero14-strip-eyebrow {
+  color: #64748b;
+}
+
+[data-theme="light"] .hero14-strip-item,
+html.light .hero14-strip-item {
+  color: #334155;
+  background: #ffffff;
+  border-color: rgba(15, 23, 42, 0.08);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+}
+
+[data-theme="light"] .hero14-strip-item:hover,
+html.light .hero14-strip-item:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+  border-color: rgba(15, 23, 42, 0.16);
+}

@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './hooks/AuthProvider';
 import { ProjectProvider } from './context/ProjectContext';
+import { ThemeProvider } from './context/ThemeContext';
 
 // Layouts
 import { PublicLayout } from './components/layout/PublicLayout';
@@ -52,75 +53,77 @@ import { ProjectSettingsPage } from './pages/project/ProjectSettingsPage';
 
 export const App: React.FC = () => {
   return (
-    <AuthProvider>
-      <ProjectProvider>
-        <Router>
-          <Routes>
-            {/* PUBLIC MARKETING ROUTES */}
-            <Route element={<PublicLayout />}>
-              <Route path="/" element={<HomePage />} />
-              <Route path="/features" element={<FeaturesPage />} />
-              <Route path="/how-it-works" element={<HowItWorksPage />} />
-              <Route path="/solutions" element={<SolutionsPage />} />
-              <Route path="/pricing" element={<PricingPage />} />
-              <Route path="/about" element={<AboutPage />} />
-              <Route path="/contact" element={<ContactPage />} />
-              <Route path="/docs" element={<DocsPage />} />
-              <Route path="/security" element={<SecurityPage />} />
-              <Route path="/faq" element={<FAQPage />} />
-              <Route path="/privacy" element={<PrivacyPage />} />
-              <Route path="/terms" element={<TermsPage />} />
-              <Route path="/cookies" element={<CookiesPage />} />
-            </Route>
+    <ThemeProvider>
+      <AuthProvider>
+        <ProjectProvider>
+          <Router>
+            <Routes>
+              {/* PUBLIC MARKETING ROUTES */}
+              <Route element={<PublicLayout />}>
+                <Route path="/" element={<HomePage />} />
+                <Route path="/features" element={<FeaturesPage />} />
+                <Route path="/how-it-works" element={<HowItWorksPage />} />
+                <Route path="/solutions" element={<SolutionsPage />} />
+                <Route path="/pricing" element={<PricingPage />} />
+                <Route path="/about" element={<AboutPage />} />
+                <Route path="/contact" element={<ContactPage />} />
+                <Route path="/docs" element={<DocsPage />} />
+                <Route path="/security" element={<SecurityPage />} />
+                <Route path="/faq" element={<FAQPage />} />
+                <Route path="/privacy" element={<PrivacyPage />} />
+                <Route path="/terms" element={<TermsPage />} />
+                <Route path="/cookies" element={<CookiesPage />} />
+              </Route>
 
-            {/* AUTHENTICATION ROUTES */}
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/signup" element={<SignupPage />} />
-            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-            <Route path="/reset-password" element={<ResetPasswordPage />} />
-            <Route path="/verify-email" element={<VerifyEmailPage />} />
+              {/* AUTHENTICATION ROUTES */}
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/signup" element={<SignupPage />} />
+              <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+              <Route path="/reset-password" element={<ResetPasswordPage />} />
+              <Route path="/verify-email" element={<VerifyEmailPage />} />
 
-            {/* PORTFOLIO APPLICATION ROUTES */}
-            <Route element={<AppLayout />}>
-              <Route path="/dashboard" element={<PortfolioDashboardPage />} />
-              <Route path="/projects" element={<ProjectsPage />} />
-              <Route path="/projects/new" element={<CreateProjectPage />} />
-            </Route>
+              {/* PORTFOLIO APPLICATION ROUTES */}
+              <Route element={<AppLayout />}>
+                <Route path="/dashboard" element={<PortfolioDashboardPage />} />
+                <Route path="/projects" element={<ProjectsPage />} />
+                <Route path="/projects/new" element={<CreateProjectPage />} />
+              </Route>
 
-            {/* PROJECT WORKSPACE ROUTES */}
-            <Route path="/projects/:id" element={<ProjectWorkspaceLayout />}>
-              <Route index element={<Navigate to="overview" replace />} />
-              <Route path="overview" element={<ProjectOverviewPage />} />
-              <Route path="schedule" element={<ProjectSchedulePage />} />
-              <Route path="activities" element={<ProjectActivitiesPage />} />
-              <Route path="reports" element={<ProjectReportsPage />} />
-              <Route path="reports/upload" element={<ProjectUploadPage />} />
-              <Route path="upload" element={<Navigate to="reports/upload" replace />} />
-              <Route path="processing" element={<ProjectProcessingPage />} />
-              <Route path="reconciliation" element={<ProjectReconciliationPage />} />
-              <Route path="review" element={<ProjectReviewPage />} />
-              <Route path="review/:matchId" element={<ProjectReviewPage />} />
-              <Route path="unmatched" element={<ProjectUnmatchedPage />} />
-              <Route path="analytics" element={<ProjectAnalyticsPage />} />
-              <Route path="audit" element={<ProjectAuditPage />} />
-              <Route path="team" element={<ProjectTeamPage />} />
-              <Route path="settings" element={<ProjectSettingsPage />} />
-            </Route>
+              {/* PROJECT WORKSPACE ROUTES */}
+              <Route path="/projects/:id" element={<ProjectWorkspaceLayout />}>
+                <Route index element={<Navigate to="overview" replace />} />
+                <Route path="overview" element={<ProjectOverviewPage />} />
+                <Route path="schedule" element={<ProjectSchedulePage />} />
+                <Route path="activities" element={<ProjectActivitiesPage />} />
+                <Route path="reports" element={<ProjectReportsPage />} />
+                <Route path="reports/upload" element={<ProjectUploadPage />} />
+                <Route path="upload" element={<Navigate to="reports/upload" replace />} />
+                <Route path="processing" element={<ProjectProcessingPage />} />
+                <Route path="reconciliation" element={<ProjectReconciliationPage />} />
+                <Route path="review" element={<ProjectReviewPage />} />
+                <Route path="review/:matchId" element={<ProjectReviewPage />} />
+                <Route path="unmatched" element={<ProjectUnmatchedPage />} />
+                <Route path="analytics" element={<ProjectAnalyticsPage />} />
+                <Route path="audit" element={<ProjectAuditPage />} />
+                <Route path="team" element={<ProjectTeamPage />} />
+                <Route path="settings" element={<ProjectSettingsPage />} />
+              </Route>
 
-            {/* BACKWARD COMPATIBILITY / ALIAS REDIRECTS */}
-            <Route path="/upload" element={<Navigate to="/projects/proj-01/reports/upload" replace />} />
-            <Route path="/reconciliation" element={<Navigate to="/projects/proj-01/reconciliation" replace />} />
-            <Route path="/review/:matchId" element={<Navigate to="/projects/proj-01/review" replace />} />
-            <Route path="/unmatched" element={<Navigate to="/projects/proj-01/unmatched" replace />} />
-            <Route path="/schedule" element={<Navigate to="/projects/proj-01/schedule" replace />} />
-            <Route path="/audit" element={<Navigate to="/projects/proj-01/audit" replace />} />
+              {/* BACKWARD COMPATIBILITY / ALIAS REDIRECTS */}
+              <Route path="/upload" element={<Navigate to="/projects/proj-01/reports/upload" replace />} />
+              <Route path="/reconciliation" element={<Navigate to="/projects/proj-01/reconciliation" replace />} />
+              <Route path="/review/:matchId" element={<Navigate to="/projects/proj-01/review" replace />} />
+              <Route path="/unmatched" element={<Navigate to="/projects/proj-01/unmatched" replace />} />
+              <Route path="/schedule" element={<Navigate to="/projects/proj-01/schedule" replace />} />
+              <Route path="/audit" element={<Navigate to="/projects/proj-01/audit" replace />} />
 
-            {/* CATCH ALL */}
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </Router>
-      </ProjectProvider>
-    </AuthProvider>
+              {/* CATCH ALL */}
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </Router>
+        </ProjectProvider>
+      </AuthProvider>
+    </ThemeProvider>
   );
 };
 

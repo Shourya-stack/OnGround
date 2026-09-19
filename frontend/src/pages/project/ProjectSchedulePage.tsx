@@ -158,36 +158,48 @@ export const ProjectSchedulePage: React.FC = () => {
 
       {/* Filter & Search Bar */}
       <div
-        className="glass-card"
+        className="bionis-card"
         style={{
-          padding: '16px 20px',
           display: 'flex',
           flexDirection: 'column',
           gap: '14px',
         }}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
-          <div style={{ position: 'relative', width: '320px', maxWidth: '100%' }}>
-            <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+          <div style={{ position: 'relative', width: '340px', maxWidth: '100%' }}>
+            <Search size={15} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--accent-blue)' }} />
             <input
               type="text"
-              placeholder="Search activity code, description..."
+              placeholder="Search WBS activity code, description..."
               className="form-input"
-              style={{ width: '100%', paddingLeft: '36px', height: '36px', fontSize: '13px' }}
+              style={{
+                width: '100%',
+                paddingLeft: '36px',
+                height: '38px',
+                fontSize: '13px',
+                borderRadius: 'var(--radius-md)',
+                backgroundColor: 'var(--bg-surface-elevated)',
+                border: '1px solid var(--border-subtle)',
+              }}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-            <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>STATUS:</span>
+            <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>STATUS:</span>
             {statusFilters.map((st) => (
               <button
                 key={st}
                 type="button"
                 className={`tab-pill ${selectedStatus === st ? 'active' : ''}`}
                 onClick={() => setSelectedStatus(st)}
-                style={{ textTransform: 'capitalize' }}
+                style={{
+                  textTransform: 'capitalize',
+                  fontSize: '12px',
+                  borderRadius: 'var(--radius-md)',
+                  padding: '4px 10px',
+                }}
               >
                 {st.replace('_', ' ')}
               </button>
@@ -196,14 +208,19 @@ export const ProjectSchedulePage: React.FC = () => {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', borderTop: '1px solid var(--border-subtle)', paddingTop: '10px' }}>
-          <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>DISCIPLINE:</span>
+          <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>DISCIPLINE:</span>
           {disciplines.map((d) => (
             <button
               key={d}
               type="button"
               className={`tab-pill ${selectedDiscipline === d ? 'active' : ''}`}
               onClick={() => setSelectedDiscipline(d)}
-              style={{ textTransform: 'capitalize', fontSize: '12px', padding: '3px 10px' }}
+              style={{
+                textTransform: 'capitalize',
+                fontSize: '12px',
+                padding: '4px 10px',
+                borderRadius: 'var(--radius-md)',
+              }}
             >
               {d.replace('_', ' ')}
             </button>

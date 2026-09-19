@@ -67,7 +67,7 @@ export const ProjectsPage: React.FC = () => {
 
       {/* Filter & Search Bar */}
       <div
-        className="glass-card"
+        className="bionis-card"
         style={{
           padding: '16px 20px',
           display: 'flex',
@@ -111,7 +111,7 @@ export const ProjectsPage: React.FC = () => {
       {loading ? (
         <LoadingSkeleton rows={4} height="90px" />
       ) : filteredProjects.length === 0 ? (
-        <div className="glass-card" style={{ textAlign: 'center', padding: '60px 20px' }}>
+        <div className="bionis-card" style={{ textAlign: 'center', padding: '60px 20px' }}>
           <FolderGit2 size={48} style={{ color: 'var(--text-muted)', margin: '0 auto 16px' }} />
           <h3 style={{ fontSize: '1.2rem', fontWeight: 700, marginBottom: '8px' }}>No Projects Found</h3>
           <p style={{ color: 'var(--text-muted)', fontSize: '14px', marginBottom: '20px' }}>
@@ -126,7 +126,7 @@ export const ProjectsPage: React.FC = () => {
           {filteredProjects.map((proj) => (
             <div
               key={proj.id}
-              className="glass-card project-row-card"
+              className="bionis-card project-row-card"
               style={{ padding: '24px 28px' }}
               onClick={() => {
                 setActiveProjectId(proj.id);

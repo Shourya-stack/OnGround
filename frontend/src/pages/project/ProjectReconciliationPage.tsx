@@ -142,9 +142,8 @@ export const ProjectReconciliationPage: React.FC = () => {
 
       {/* Tabs & Search Toolbar */}
       <div
-        className="glass-card"
+        className="bionis-card"
         style={{
-          padding: '16px 20px',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
@@ -239,9 +238,13 @@ export const ProjectReconciliationPage: React.FC = () => {
           {filtered.map((m) => (
             <div
               key={m.id}
-              className="glass-card reconciliation-card"
+              className="bionis-card reconciliation-card"
               style={{
-                padding: '20px 24px',
+                padding: '1.25rem 1.5rem',
+                display: 'grid',
+                gridTemplateColumns: '1.4fr 120px 1.4fr auto',
+                alignItems: 'center',
+                gap: '1.25rem',
               }}
             >
               {/* Daily Report Extracted Activity */}

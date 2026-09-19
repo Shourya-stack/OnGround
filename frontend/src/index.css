@@ -3,18 +3,25 @@
    Design System & Core CSS Tokens
    ============================================================================= */
 
-:root {
-  /* Color Palette — Enterprise Infrastructure Dark Mode */
+:root,
+[data-theme="dark"],
+html.dark {
+  /* Color Palette — Enterprise Infrastructure Dark Mode (Bionis Inspired) */
   --bg-primary: #0a0e17;
   --bg-secondary: #0f172a;
   --bg-surface: #1e293b;
   --bg-surface-elevated: #243248;
   --bg-surface-hover: #2d3d56;
-  
+  --bg-card: #141c2e;
+  --bg-sidebar: #0f172a;
+  --bg-topbar: rgba(15, 23, 42, 0.85);
+  --sidebar-footer-bg: rgba(10, 14, 23, 0.4);
+
   /* Text & Contrast */
   --text-primary: #f8fafc;
   --text-secondary: #94a3b8;
   --text-muted: #64748b;
+  --text-disabled: #475569;
   --text-inverse: #0f172a;
 
   /* Borders & Dividers */
@@ -26,6 +33,8 @@
   --accent-blue: #38bdf8;
   --accent-blue-glow: rgba(56, 189, 248, 0.2);
   --accent-indigo: #6366f1;
+  --accent-cyan: #06b6d4;
+  --accent-emerald: #10b981;
   
   /* Status & Confidence Colors */
   --confidence-high: #10b981;
@@ -48,16 +57,123 @@
   --disc-equip: #f97316;
   --disc-hse: #22c55e;
 
+  /* Bionis Design System Adapted Tokens */
+  --score: #0284c7;
+  --score-glow: rgba(2, 132, 199, 0.25);
+  --live: #10b981;
+  --chart-steps: #38bdf8;
+  --chart-recovery: #6366f1;
+  --chart-sleep: #a855f7;
+  --chart-warn: #f59e0b;
+  --chart-warn-bg: rgba(245, 158, 11, 0.12);
+  --chart-period: #94a3b8;
+  --chart-period-bg: rgba(148, 163, 184, 0.1);
+  --chart-grid: rgba(255, 255, 255, 0.07);
+  --chart-tooltip-bg: #1e293b;
+  --chart-axis: #94a3b8;
+
+  --metric-heart: #ef4444;
+  --metric-steps: #0284c7;
+  --metric-sleep: #8b5cf6;
+  --metric-recovery: #10b981;
+  --metric-vital: #06b6d4;
+
+  --insight-prediction: #6366f1;
+  --insight-vitals: #ef4444;
+  --insight-actions: #14b8a6;
+
   /* Typography */
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
 
   /* Layout Constants */
   --sidebar-width: 260px;
-  --topbar-height: 64px;
+  --sidebar-width-collapsed: 72px;
+  --topbar-height: 68px;
   --radius-sm: 6px;
   --radius-md: 10px;
   --radius-lg: 14px;
+  --radius-xl: 18px;
+  --radius-2xl: 22px;
+}
+
+[data-theme="light"],
+html.light {
+  /* Color Palette — Enterprise Infrastructure Light Mode (Bionis Inspired) */
+  --bg-primary: #f8fafc;
+  --bg-secondary: #f1f5f9;
+  --bg-surface: #ffffff;
+  --bg-surface-elevated: #f8fafc;
+  --bg-surface-hover: #f1f5f9;
+  --bg-card: #ffffff;
+  --bg-sidebar: #ffffff;
+  --bg-topbar: rgba(255, 255, 255, 0.9);
+  --sidebar-footer-bg: rgba(241, 245, 249, 0.7);
+
+  /* Text & Contrast (Accessible & High Contrast) */
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #64748b;
+  --text-disabled: #94a3b8;
+  --text-inverse: #ffffff;
+
+  /* Borders & Dividers */
+  --border-subtle: rgba(15, 23, 42, 0.08);
+  --border-medium: rgba(15, 23, 42, 0.16);
+  --border-focus: #0284c7;
+
+  /* Accent Colors */
+  --accent-blue: #0284c7;
+  --accent-blue-glow: rgba(2, 132, 199, 0.18);
+  --accent-indigo: #4f46e5;
+  --accent-cyan: #0891b2;
+  --accent-emerald: #059669;
+
+  /* Status & Confidence Colors (Accessible Light Contrast) */
+  --confidence-high: #059669;
+  --confidence-high-bg: rgba(5, 150, 105, 0.1);
+  --confidence-high-border: rgba(5, 150, 105, 0.25);
+
+  --confidence-review: #d97706;
+  --confidence-review-bg: rgba(217, 119, 6, 0.1);
+  --confidence-review-border: rgba(217, 119, 6, 0.25);
+
+  --confidence-low: #dc2626;
+  --confidence-low-bg: rgba(220, 38, 38, 0.1);
+  --confidence-low-border: rgba(220, 38, 38, 0.25);
+
+  /* Disciplines (tuned for white / light background readability) */
+  --disc-civil: #0284c7;
+  --disc-piping: #9333ea;
+  --disc-electrical: #b45309;
+  --disc-inst: #0d9488;
+  --disc-equip: #ea580c;
+  --disc-hse: #16a34a;
+
+  /* Bionis Design System Adapted Tokens for Light Mode */
+  --score: #0284c7;
+  --score-glow: rgba(2, 132, 199, 0.16);
+  --live: #059669;
+  --chart-steps: #0284c7;
+  --chart-recovery: #4f46e5;
+  --chart-sleep: #9333ea;
+  --chart-warn: #d97706;
+  --chart-warn-bg: rgba(217, 119, 6, 0.1);
+  --chart-period: #64748b;
+  --chart-period-bg: rgba(100, 116, 139, 0.08);
+  --chart-grid: rgba(15, 23, 42, 0.06);
+  --chart-tooltip-bg: #ffffff;
+  --chart-axis: #64748b;
+
+  --metric-heart: #dc2626;
+  --metric-steps: #0284c7;
+  --metric-sleep: #7c3aed;
+  --metric-recovery: #059669;
+  --metric-vital: #0891b2;
+
+  --insight-prediction: #4f46e5;
+  --insight-vitals: #dc2626;
+  --insight-actions: #0d9488;
 }
 
 /* Reset & Base */
@@ -128,7 +244,7 @@ body {
   display: block;
   font-size: 16px;
   font-weight: 700;
-  color: #ffffff;
+  color: var(--text-primary);
   letter-spacing: -0.02em;
 }
 
@@ -183,7 +299,7 @@ body {
 .sidebar-footer {
   padding: 16px;
   border-top: 1px solid var(--border-subtle);
-  background-color: rgba(10, 14, 23, 0.4);
+  background-color: var(--sidebar-footer-bg);
 }
 
 .realtime-status-pill {
@@ -228,7 +344,7 @@ body {
 /* TopBar */
 .topbar {
   height: var(--topbar-height);
-  background-color: rgba(15, 23, 42, 0.85);
+  background-color: var(--bg-topbar);
   backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--border-subtle);
   display: flex;
@@ -410,7 +526,7 @@ body {
 .card-title {
   font-size: 16px;
   font-weight: 600;
-  color: #ffffff;
+  color: var(--text-primary);
   margin-bottom: 8px;
 }
 
@@ -1381,3 +1497,580 @@ textarea:focus-visible {
   }
 }
 
+/* =============================================================================
+   Bionis Reference Design Primitives for OnGround
+   ============================================================================= */
+
+/* Bionis Ambient Card */
+.bionis-card {
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
+  padding: 1.25rem;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+}
+
+.bionis-card:hover {
+  border-color: var(--border-medium);
+}
+
+.bionis-card-glow-blue {
+  background: linear-gradient(180deg, rgba(56, 189, 248, 0.08) 0%, rgba(30, 41, 59, 0.75) 42%, var(--bg-surface) 100%);
+}
+
+.bionis-card-glow-indigo {
+  background: linear-gradient(180deg, rgba(99, 102, 241, 0.08) 0%, rgba(30, 41, 59, 0.75) 42%, var(--bg-surface) 100%);
+}
+
+.bionis-card-glow-emerald {
+  background: linear-gradient(180deg, rgba(16, 185, 129, 0.08) 0%, rgba(30, 41, 59, 0.75) 42%, var(--bg-surface) 100%);
+}
+
+.bionis-card-glow-amber {
+  background: linear-gradient(180deg, rgba(245, 158, 11, 0.08) 0%, rgba(30, 41, 59, 0.75) 42%, var(--bg-surface) 100%);
+}
+
+.bionis-card-glow-rose {
+  background: linear-gradient(180deg, rgba(239, 68, 68, 0.08) 0%, rgba(30, 41, 59, 0.75) 42%, var(--bg-surface) 100%);
+}
+
+/* Bionis Key Metric Card */
+.bionis-metric-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 140px;
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--border-subtle);
+  background-color: var(--bg-surface);
+  padding: 1.15rem;
+  position: relative;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.bionis-metric-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(255, 255, 255, 0.16);
+  box-shadow: 0 8px 24px -6px rgba(0, 0, 0, 0.35);
+}
+
+.bionis-metric-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.bionis-metric-icon-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  color: #ffffff;
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+
+.bionis-metric-title {
+  font-size: 0.825rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bionis-metric-value-wrap {
+  margin-top: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.bionis-metric-value {
+  font-size: 1.75rem;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.bionis-metric-unit {
+  font-size: 0.85rem;
+  font-weight: 400;
+  color: var(--text-muted);
+  margin-left: 0.35rem;
+}
+
+.bionis-trend-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.75rem;
+}
+
+.bionis-trend-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-weight: 600;
+  padding: 0.15rem 0.45rem;
+  border-radius: var(--radius-sm);
+}
+
+.bionis-trend-badge.positive {
+  color: var(--confidence-high);
+  background: var(--confidence-high-bg);
+}
+
+.bionis-trend-badge.negative {
+  color: var(--confidence-low);
+  background: var(--confidence-low-bg);
+}
+
+.bionis-trend-label {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+/* Bionis Insight Badge */
+.bionis-insight-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.65rem;
+  border-radius: var(--radius-md);
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  background-color: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+}
+
+/* Custom Recharts Tooltip Frame */
+.bionis-chart-tooltip {
+  min-width: 150px;
+  background-color: rgba(30, 41, 59, 0.94);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-md);
+  padding: 0.65rem 0.85rem;
+  box-shadow: 0 12px 30px -4px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.bionis-chart-tooltip-title {
+  font-size: 0.725rem;
+  color: var(--text-muted);
+  font-weight: 500;
+  padding-bottom: 0.25rem;
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.bionis-chart-tooltip-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.85rem;
+  font-size: 0.75rem;
+}
+
+.bionis-chart-tooltip-key {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--text-secondary);
+}
+
+.bionis-chart-tooltip-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.bionis-chart-tooltip-val {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Discipline Progress Factor Bars (Bionis Recovery Factors Pattern) */
+.bionis-factor-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.65rem 0.85rem;
+  border-radius: var(--radius-md);
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  transition: all 0.15s ease;
+}
+
+.bionis-factor-row:hover {
+  border-color: var(--border-medium);
+  background: var(--bg-surface-hover);
+}
+
+.bionis-factor-bar-track {
+  position: relative;
+  height: 10px;
+  width: 140px;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.bionis-factor-bar-fill {
+  height: 100%;
+  border-radius: 5px;
+  transition: width 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Sidebar Modernized Groups & Collapsible Styles */
+.sidebar.collapsed {
+  width: var(--sidebar-width-collapsed) !important;
+}
+
+.sidebar.collapsed .brand-title,
+.sidebar.collapsed .brand-sub,
+.sidebar.collapsed .nav-section-label,
+.sidebar.collapsed .nav-label,
+.sidebar.collapsed .sidebar-footer,
+.sidebar.collapsed .project-switcher-wrap {
+  display: none !important;
+}
+
+.sidebar.collapsed .sidebar-brand {
+  justify-content: center !important;
+  padding: 0 !important;
+}
+
+.sidebar.collapsed .nav-link {
+  justify-content: center !important;
+  padding: 10px 0 !important;
+}
+
+.sidebar-collapse-btn {
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+  border-radius: var(--radius-sm);
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.sidebar-collapse-btn:hover {
+  color: var(--text-primary);
+  border-color: var(--border-medium);
+  background: var(--bg-surface-hover);
+}
+
+/* AI Assistant Mini-Card in Sidebar Footer */
+.bionis-sidebar-ai-card {
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.12) 0%, rgba(99, 102, 241, 0.08) 100%);
+  border: 1px solid rgba(56, 189, 248, 0.22);
+  border-radius: var(--radius-lg);
+  padding: 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.bionis-sidebar-ai-badge {
+  align-self: flex-start;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  background: var(--accent-blue);
+  color: #0f172a;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+/* =============================================================================
+   Light Mode Theme Polish & Overrides (Bionis Light Design Language)
+   ============================================================================= */
+[data-theme="light"],
+html.light {
+  /* Surfaces & Shadows */
+  .bionis-card {
+    background-color: var(--bg-surface);
+    border-color: rgba(15, 23, 42, 0.08);
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04), 0 4px 12px rgba(15, 23, 42, 0.02);
+  }
+
+  .bionis-card:hover {
+    border-color: rgba(15, 23, 42, 0.16);
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06), 0 12px 24px -4px rgba(15, 23, 42, 0.04);
+  }
+
+  .bionis-card-glow-blue {
+    background: linear-gradient(180deg, rgba(2, 132, 199, 0.06) 0%, rgba(241, 245, 249, 0.5) 45%, #ffffff 100%);
+  }
+
+  .bionis-card-glow-indigo {
+    background: linear-gradient(180deg, rgba(79, 70, 229, 0.06) 0%, rgba(241, 245, 249, 0.5) 45%, #ffffff 100%);
+  }
+
+  .bionis-card-glow-emerald {
+    background: linear-gradient(180deg, rgba(5, 150, 105, 0.06) 0%, rgba(241, 245, 249, 0.5) 45%, #ffffff 100%);
+  }
+
+  .bionis-card-glow-amber {
+    background: linear-gradient(180deg, rgba(217, 119, 6, 0.06) 0%, rgba(241, 245, 249, 0.5) 45%, #ffffff 100%);
+  }
+
+  .bionis-card-glow-rose {
+    background: linear-gradient(180deg, rgba(220, 38, 38, 0.06) 0%, rgba(241, 245, 249, 0.5) 45%, #ffffff 100%);
+  }
+
+  .bionis-metric-card {
+    background-color: var(--bg-surface);
+    border-color: rgba(15, 23, 42, 0.08);
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.03), 0 4px 10px rgba(15, 23, 42, 0.02);
+  }
+
+  .bionis-metric-card:hover {
+    border-color: rgba(15, 23, 42, 0.16);
+    box-shadow: 0 6px 18px -4px rgba(15, 23, 42, 0.08);
+  }
+
+  .bionis-factor-row {
+    background: #f8fafc;
+    border-color: rgba(15, 23, 42, 0.08);
+  }
+
+  .bionis-factor-row:hover {
+    background: #f1f5f9;
+    border-color: rgba(15, 23, 42, 0.14);
+  }
+
+  .bionis-factor-bar-track {
+    background: rgba(15, 23, 42, 0.08);
+  }
+
+  .bionis-chart-tooltip {
+    background-color: rgba(255, 255, 255, 0.97);
+    border: 1px solid rgba(15, 23, 42, 0.12);
+    box-shadow: 0 10px 25px -4px rgba(15, 23, 42, 0.12), 0 4px 6px -2px rgba(15, 23, 42, 0.04);
+  }
+
+  .bionis-chart-tooltip-title {
+    color: var(--text-secondary);
+    border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+  }
+
+  .bionis-chart-tooltip-key {
+    color: var(--text-secondary);
+  }
+
+  .bionis-chart-tooltip-val {
+    color: var(--text-primary);
+  }
+
+  .bionis-sidebar-ai-card {
+    background: linear-gradient(135deg, rgba(2, 132, 199, 0.08) 0%, rgba(79, 70, 229, 0.04) 100%);
+    border: 1px solid rgba(2, 132, 199, 0.2);
+  }
+
+  .glass-card {
+    background: rgba(255, 255, 255, 0.9);
+    border-color: rgba(15, 23, 42, 0.08);
+    box-shadow: 0 4px 16px rgba(15, 23, 42, 0.05);
+  }
+
+  .glass-card:hover {
+    border-color: rgba(15, 23, 42, 0.16);
+    box-shadow: 0 12px 28px rgba(15, 23, 42, 0.09);
+  }
+
+  .card {
+    background-color: var(--bg-card);
+    border-color: var(--border-subtle);
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+  }
+
+  .data-table-container {
+    background-color: #ffffff;
+    border-color: rgba(15, 23, 42, 0.08);
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.03);
+  }
+
+  .data-table th {
+    background-color: #f8fafc;
+    color: #475569;
+    border-bottom-color: rgba(15, 23, 42, 0.08);
+  }
+
+  .data-table td {
+    color: #334155;
+    border-bottom-color: rgba(15, 23, 42, 0.06);
+  }
+
+  .data-table tr:hover td {
+    background-color: #f1f5f9;
+    color: #0f172a;
+  }
+
+  .modal-backdrop {
+    background-color: rgba(15, 23, 42, 0.45);
+  }
+
+  .modal-content {
+    background-color: #ffffff;
+    border-color: rgba(15, 23, 42, 0.12);
+    box-shadow: 0 20px 45px -8px rgba(15, 23, 42, 0.15);
+  }
+
+  .drawer-backdrop {
+    background-color: rgba(15, 23, 42, 0.4);
+  }
+
+  .drawer-content {
+    background-color: #ffffff;
+    border-left-color: rgba(15, 23, 42, 0.1);
+    box-shadow: -10px 0 30px rgba(15, 23, 42, 0.08);
+  }
+
+  .nav-link.active {
+    background-color: #e0f2fe;
+    color: #0284c7;
+    border: 1px solid rgba(2, 132, 199, 0.25);
+    box-shadow: 0 1px 3px rgba(2, 132, 199, 0.12);
+  }
+
+  .btn-secondary {
+    background-color: #ffffff;
+    border-color: rgba(15, 23, 42, 0.14);
+    color: #0f172a;
+  }
+
+  .btn-secondary:hover {
+    background-color: #f8fafc;
+    border-color: #0284c7;
+  }
+
+  .btn-outline {
+    border-color: rgba(15, 23, 42, 0.18);
+    color: #0f172a;
+  }
+
+  .btn-outline:hover {
+    background-color: rgba(2, 132, 199, 0.06);
+    border-color: #0284c7;
+  }
+
+  .btn-ghost {
+    color: #475569;
+  }
+
+  .btn-ghost:hover {
+    color: #0f172a;
+    background-color: rgba(15, 23, 42, 0.05);
+  }
+
+  .tab-pills {
+    background-color: #f1f5f9;
+    border-color: rgba(15, 23, 42, 0.08);
+  }
+
+  .tab-pill {
+    color: #64748b;
+  }
+
+  .tab-pill.active {
+    background-color: #ffffff;
+    color: #0284c7;
+    box-shadow: 0 1px 4px rgba(15, 23, 42, 0.08);
+  }
+
+  .form-input,
+  .form-select,
+  .form-textarea {
+    background-color: #ffffff;
+    border-color: rgba(15, 23, 42, 0.15);
+    color: #0f172a;
+  }
+
+  .form-input:focus,
+  .form-select:focus,
+  .form-textarea:focus {
+    border-color: #0284c7;
+    box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.18);
+  }
+
+  .project-row-card {
+    background-color: #ffffff;
+  }
+
+  .project-row-card:hover {
+    border-color: rgba(15, 23, 42, 0.18);
+    box-shadow: 0 4px 16px rgba(15, 23, 42, 0.08);
+  }
+
+  .public-navbar {
+    background-color: rgba(255, 255, 255, 0.92);
+    border-bottom-color: rgba(15, 23, 42, 0.08);
+  }
+
+  .brand-name-text {
+    background: linear-gradient(135deg, #0f172a 40%, #475569 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .public-footer {
+    background-color: #f8fafc;
+    border-top-color: rgba(15, 23, 42, 0.08);
+  }
+
+  .footer-brand-col p {
+    color: #64748b;
+  }
+
+  .footer-col h4 {
+    color: #0f172a;
+  }
+
+  .footer-col a {
+    color: #64748b;
+  }
+
+  .footer-col a:hover {
+    color: #0284c7;
+  }
+
+  .footer-bottom {
+    border-top-color: rgba(15, 23, 42, 0.08);
+    color: #94a3b8;
+  }
+
+  .footer-bottom a {
+    color: #64748b;
+  }
+
+  .footer-bottom a:hover {
+    color: #0284c7;
+  }
+}

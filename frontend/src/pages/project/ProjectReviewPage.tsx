@@ -203,7 +203,7 @@ export const ProjectReviewPage: React.FC = () => {
       ) : error ? (
         <ErrorState message={error} onRetry={loadReviewQueue} />
       ) : reviewMatches.length === 0 ? (
-        <div className="glass-card" style={{ textAlign: 'center', padding: '60px 20px' }}>
+        <div className="bionis-card bionis-card-glow-green" style={{ textAlign: 'center', padding: '60px 20px' }}>
           <CheckCircle2 size={48} style={{ color: 'var(--confidence-high)', margin: '0 auto 16px' }} />
           <h2 style={{ fontSize: '1.3rem', fontWeight: 700, marginBottom: '8px' }}>Review Queue Clear!</h2>
           <p style={{ color: 'var(--text-muted)', fontSize: '14px', marginBottom: '24px' }}>
@@ -218,7 +218,7 @@ export const ProjectReviewPage: React.FC = () => {
           {/* Pagination bar */}
           {reviewMatches.length > 1 && (
             <div
-              className="glass-card"
+              className="bionis-card"
               style={{
                 padding: '12px 20px',
                 display: 'flex',
@@ -253,7 +253,7 @@ export const ProjectReviewPage: React.FC = () => {
 
           <div className="review-workspace-grid">
             {/* Main Inspection Card */}
-            <div className="glass-card" style={{ padding: '32px' }}>
+            <div className="bionis-card bionis-card-glow-blue" style={{ padding: '32px' }}>
               {/* Field Reported Activity */}
               <div
                 style={{
@@ -354,7 +354,7 @@ export const ProjectReviewPage: React.FC = () => {
             </div>
 
             {/* Alternatives Column */}
-            <div className="glass-card" style={{ padding: '24px' }}>
+            <div className="bionis-card" style={{ padding: '24px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
                 <h3 style={{ fontSize: '1.1rem', fontWeight: 700 }}>
                   Candidate Alternatives

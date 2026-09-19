@@ -179,7 +179,7 @@ export const ProjectSettingsPage: React.FC = () => {
       </div>
 
       {/* Tabs */}
-      <div className="glass-card" style={{ padding: '12px 16px', display: 'flex', gap: '8px', overflowX: 'auto' }}>
+      <div className="bionis-card" style={{ padding: '12px 16px', display: 'flex', gap: '8px', overflowX: 'auto' }}>
         {[
           { id: 'general', label: 'General Parameters' },
           { id: 'matching', label: 'Matching Thresholds' },
@@ -198,7 +198,7 @@ export const ProjectSettingsPage: React.FC = () => {
       </div>
 
       {/* Tab Panels */}
-      <div className="glass-card" style={{ padding: '32px' }}>
+      <div className="bionis-card" style={{ padding: '32px' }}>
         {activeTab === 'general' && (
           <form onSubmit={handleSaveGeneral} noValidate style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
             <div className="form-group">

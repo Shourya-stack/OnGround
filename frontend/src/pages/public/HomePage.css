@@ -535,3 +535,183 @@
   gap: 14px;
   flex-wrap: wrap;
 }
+
+/* =============================================================================
+   Light Mode Overrides for Home Page
+   ============================================================================= */
+[data-theme="light"] .landing-page,
+html.light .landing-page {
+  background-color: #ffffff;
+  color: #0f172a;
+}
+
+[data-theme="light"] .landing-section,
+html.light .landing-section {
+  border-bottom-color: rgba(15, 23, 42, 0.08);
+}
+
+[data-theme="light"] .landing-tag,
+html.light .landing-tag {
+  background-color: #f1f5f9;
+  border-color: rgba(15, 23, 42, 0.1);
+  color: #334155;
+}
+
+[data-theme="light"] .landing-title,
+html.light .landing-title {
+  color: #0f172a;
+}
+
+[data-theme="light"] .landing-title-italic,
+html.light .landing-title-italic {
+  color: #0f172a;
+}
+
+[data-theme="light"] .landing-subtitle,
+html.light .landing-subtitle {
+  color: #475569;
+}
+
+[data-theme="light"] .problem-card,
+html.light .problem-card {
+  background: #ffffff;
+  border-color: rgba(15, 23, 42, 0.08);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+}
+
+[data-theme="light"] .problem-card:hover,
+html.light .problem-card:hover {
+  background: #f8fafc;
+  border-color: rgba(15, 23, 42, 0.16);
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.06);
+}
+
+[data-theme="light"] .problem-card-title,
+html.light .problem-card-title {
+  color: #0f172a;
+}
+
+[data-theme="light"] .problem-card-desc,
+html.light .problem-card-desc {
+  color: #475569;
+}
+
+[data-theme="light"] .bento-card,
+html.light .bento-card {
+  background: #ffffff;
+  border-color: rgba(15, 23, 42, 0.08);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+}
+
+[data-theme="light"] .bento-card:hover,
+html.light .bento-card:hover {
+  border-color: rgba(2, 132, 199, 0.3);
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.08);
+}
+
+[data-theme="light"] .bento-title,
+html.light .bento-title {
+  color: #0f172a;
+}
+
+[data-theme="light"] .bento-desc,
+html.light .bento-desc {
+  color: #475569;
+}
+
+[data-theme="light"] .micro-ui-preview,
+html.light .micro-ui-preview {
+  background: #f8fafc;
+  border-color: rgba(15, 23, 42, 0.08);
+}
+
+[data-theme="light"] .micro-match-row,
+html.light .micro-match-row {
+  background: #ffffff;
+  border: 1px solid rgba(15, 23, 42, 0.06);
+}
+
+[data-theme="light"] .showcase-wrapper,
+html.light .showcase-wrapper {
+  background: radial-gradient(circle at 50% 0%, rgba(2, 132, 199, 0.06), transparent 70%), #ffffff;
+  border-color: rgba(2, 132, 199, 0.2);
+  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.08);
+}
+
+[data-theme="light"] .showcase-chrome,
+html.light .showcase-chrome {
+  background: #f8fafc;
+  border-bottom-color: rgba(15, 23, 42, 0.08);
+}
+
+[data-theme="light"] .showcase-breadcrumb,
+html.light .showcase-breadcrumb {
+  color: #0f172a;
+}
+
+[data-theme="light"] .showcase-box,
+html.light .showcase-box {
+  background: #ffffff;
+  border-color: rgba(15, 23, 42, 0.08);
+}
+
+[data-theme="light"] .workflow-card,
+html.light .workflow-card {
+  background: #ffffff;
+  border-color: rgba(15, 23, 42, 0.08);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+}
+
+[data-theme="light"] .workflow-card-title,
+html.light .workflow-card-title {
+  color: #0f172a;
+}
+
+[data-theme="light"] .workflow-card-desc,
+html.light .workflow-card-desc {
+  color: #475569;
+}
+
+[data-theme="light"] .role-tab-btn,
+html.light .role-tab-btn {
+  background: #f1f5f9;
+  border-color: rgba(15, 23, 42, 0.08);
+  color: #475569;
+}
+
+[data-theme="light"] .role-tab-btn:hover,
+html.light .role-tab-btn:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+[data-theme="light"] .role-tab-btn.active,
+html.light .role-tab-btn.active {
+  background: #0f172a;
+  color: #ffffff;
+  border-color: #0f172a;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.2);
+}
+
+[data-theme="light"] .role-display-card,
+html.light .role-display-card {
+  background: #ffffff;
+  border-color: rgba(15, 23, 42, 0.08);
+  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.05);
+}
+
+[data-theme="light"] .final-cta-card,
+html.light .final-cta-card {
+  background: linear-gradient(180deg, #f0fdf4 0%, #ffffff 100%);
+  border-color: rgba(16, 185, 129, 0.2);
+}
+
+[data-theme="light"] .final-cta-title,
+html.light .final-cta-title {
+  color: #0f172a;
+}
+
+[data-theme="light"] .final-cta-subtitle,
+html.light .final-cta-subtitle {
+  color: #475569;
+}

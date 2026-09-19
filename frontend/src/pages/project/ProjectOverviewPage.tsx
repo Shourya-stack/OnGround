@@ -7,13 +7,34 @@ import {
   AlertTriangle,
   UploadCloud,
   GitCompare,
-  TrendingDown,
-  TrendingUp,
   Activity,
+  ArrowRight,
+  Sparkles,
+  Layers,
+  Clock,
+  Eye,
 } from 'lucide-react';
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from 'recharts';
 import { apiService } from '../../api/apiService';
-import { Project, ReportItem, ScheduleMatch, SchedulePlanItem, FieldUpdateRecord, UnmatchedActivity } from '../../lib/types';
-import { ProgressBar } from '../../components/ui/ProgressBar';
+import {
+  Project,
+  ReportItem,
+  ScheduleMatch,
+  SchedulePlanItem,
+  FieldUpdateRecord,
+  UnmatchedActivity,
+} from '../../lib/types';
+import { KPICard } from '../../components/common/KPICard';
+import { ScoreDonut } from '../../components/common/ScoreDonut';
+import { BionisChartTooltip } from '../../components/common/BionisChartTooltip';
 import { LoadingSkeleton } from '../../components/common/LoadingSkeleton';
 import { FieldUpdateFeed } from '../../components/feed/FieldUpdateFeed';
 
@@ -57,22 +78,44 @@ export const ProjectOverviewPage: React.FC = () => {
   }, [projectId]);
 
   if (loading) {
-    return <LoadingSkeleton rows={5} height="70px" />;
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        <LoadingSkeleton rows={1} height="120px" />
+        <LoadingSkeleton rows={4} height="140px" />
+      </div>
+    );
   }
 
-  const matchedCount = matches.filter((m) => m.status === 'auto_linked' || m.status === 'confirmed').length;
+  const matchedCount = matches.filter(
+    (m) => m.status === 'auto_linked' || m.status === 'confirmed'
+  ).length;
   const reviewCount = matches.filter((m) => m.status === 'pending_review').length;
-  const unmatchedCount = unmatched.filter((u) => !u.resolution || u.resolution === 'unresolved').length;
   const pendingReviews = matches.filter((m) => m.status === 'pending_review');
 
   // Compute Planned vs Actual statistics
   const plannedAvg = schedule.length
-    ? Number((schedule.reduce((acc, curr) => acc + (curr.planned_progress ?? 0), 0) / schedule.length).toFixed(1))
+    ? Number(
+        (
+          schedule.reduce((acc, curr) => acc + (curr.planned_progress ?? 0), 0) /
+          schedule.length
+        ).toFixed(1)
+      )
     : 68.2;
   const actualAvg = schedule.length
-    ? Number((schedule.reduce((acc, curr) => acc + (curr.actual_progress ?? 0), 0) / schedule.length).toFixed(1))
+    ? Number(
+        (
+          schedule.reduce((acc, curr) => acc + (curr.actual_progress ?? 0), 0) /
+          schedule.length
+        ).toFixed(1)
+      )
     : 64.8;
   const scheduleVariance = Number((actualAvg - plannedAvg).toFixed(1));
+
+  // Health Score Calculation (out of 100)
+  const healthScore = Math.min(
+    Math.max(Math.round(100 - Math.abs(scheduleVariance) * 2.5 - reviewCount * 2), 60),
+    98
+  );
 
   // Discipline Planned vs Actual breakdown
   const disciplineStats = [
@@ -84,397 +127,525 @@ export const ProjectOverviewPage: React.FC = () => {
     { name: 'HSE & Safety Compliance', planned: 100, actual: 100, color: 'var(--confidence-high)' },
   ];
 
+  // 14-day trend mockup data aligned with real schedule/reconciliation
+  const trendData = [
+    { day: 'Day 1', planned: 52, actual: 51, autoLinked: 7 },
+    { day: 'Day 3', planned: 55, actual: 54, autoLinked: 8 },
+    { day: 'Day 5', planned: 58, actual: 56, autoLinked: 8 },
+    { day: 'Day 7', planned: 61, actual: 59, autoLinked: 9 },
+    { day: 'Day 9', planned: 63, actual: 61, autoLinked: 9 },
+    { day: 'Day 11', planned: 66, actual: 63, autoLinked: 9 },
+    { day: 'Day 14', planned: plannedAvg, actual: actualAvg, autoLinked: matchedCount || 9 },
+  ];
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
-      {/* Top Banner */}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+      {/* 1. Header & Project Action Bar */}
       <div
         style={{
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
           flexWrap: 'wrap',
-          gap: '16px',
-          background: 'linear-gradient(135deg, rgba(56, 189, 248, 0.12) 0%, rgba(16, 185, 129, 0.08) 100%)',
-          border: '1px solid rgba(56, 189, 248, 0.2)',
-          padding: '24px 28px',
-          borderRadius: 'var(--radius-lg)',
+          gap: '1rem',
         }}
       >
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-            <span style={{ fontSize: '11px', fontWeight: 700, padding: '2px 8px', borderRadius: '4px', backgroundColor: 'rgba(56, 189, 248, 0.2)', color: 'var(--accent-blue)', fontFamily: 'var(--font-mono)' }}>
-              {project?.code}
-            </span>
-            <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>• {project?.client}</span>
-          </div>
-          <h1 style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>
-            {project?.name}
-          </h1>
-          <p style={{ color: 'var(--text-muted)', fontSize: '14px', marginTop: '4px' }}>
-            Location: {project?.location} • Budget: {project?.budget} • Contract: {project?.contract_type}
-          </p>
-        </div>
-
-        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-          <Link to={`/projects/${projectId}/reports/upload`} className="btn btn-primary btn-sm">
-            <UploadCloud size={15} /> Upload Daily Log
-          </Link>
-          <Link to={`/projects/${projectId}/reconciliation`} className="btn btn-secondary btn-sm">
-            <GitCompare size={15} /> Reconciliation Table
-          </Link>
-        </div>
-      </div>
-
-      {/* KPIs Grid */}
-      <div className="grid-4">
-        <div className="glass-card" style={{ padding: '20px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-            <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)' }}>ACTIVITIES TRACKED</span>
-            <CalendarRange size={18} style={{ color: 'var(--accent-blue)' }} />
-          </div>
-          <div style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--text-primary)' }}>{schedule.length || 21}</div>
-          <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>Primavera P6 master baseline</div>
-        </div>
-
-        <div className="glass-card" style={{ padding: '20px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-            <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)' }}>FIELD OBSERVATIONS</span>
-            <FileText size={18} style={{ color: 'var(--accent-indigo)' }} />
-          </div>
-          <div style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--text-primary)' }}>{reports.length * 4 + 7}</div>
-          <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>Across {reports.length} daily logs</div>
-        </div>
-
-        <div className="glass-card" style={{ padding: '20px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-            <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)' }}>MATCHED & LINKED</span>
-            <CheckCircle2 size={18} style={{ color: 'var(--confidence-high)' }} />
-          </div>
-          <div style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--confidence-high)' }}>{matchedCount}</div>
-          <div style={{ fontSize: '12px', color: 'var(--confidence-high)', marginTop: '4px' }}>Verified schedule links</div>
-        </div>
-
-        <div className="glass-card" style={{ padding: '20px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-            <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)' }}>NEEDS REVIEW</span>
-            <AlertTriangle size={18} style={{ color: 'var(--confidence-review)' }} />
-          </div>
-          <div style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--confidence-review)' }}>{reviewCount}</div>
-          <div style={{ fontSize: '12px', color: 'var(--confidence-review)', marginTop: '4px' }}>Human sign-off required</div>
-        </div>
-      </div>
-
-      {/* Planned vs Actual Master Card & Health */}
-      <div className="overview-grid-main">
-        {/* Planned vs Actual Card */}
-        <div className="glass-card" style={{ padding: '24px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
-            <div>
-              <h2 style={{ fontSize: '1.15rem', fontWeight: 700, margin: 0 }}>Planned vs Actual Progress</h2>
-              <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                Comparing physical field execution reality against contractual schedule baseline.
-              </p>
-            </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
             <span
               style={{
                 fontSize: '11px',
                 fontWeight: 700,
-                padding: '4px 10px',
-                borderRadius: '12px',
-                backgroundColor: scheduleVariance < 0 ? 'rgba(239, 68, 68, 0.15)' : 'rgba(16, 185, 129, 0.15)',
-                color: scheduleVariance < 0 ? '#ef4444' : 'var(--confidence-high)',
+                padding: '2px 8px',
+                borderRadius: '4px',
+                backgroundColor: 'rgba(56, 189, 248, 0.15)',
+                color: 'var(--accent-blue)',
+                fontFamily: 'var(--font-mono)',
               }}
             >
-              {scheduleVariance < 0 ? 'ATTENTION REQUIRED' : 'ON TRACK'}
+              {project?.code || 'EPC-247'}
+            </span>
+            <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
+              • {project?.client || 'Infrastructure Authority'}
+            </span>
+          </div>
+          <h1 style={{ fontSize: '1.75rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0, letterSpacing: '-0.02em' }}>
+            {project?.name || 'Line 247 EPC Package'}
+          </h1>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', margin: '4px 0 0 0' }}>
+            Location: {project?.location || 'Gujarat'} • Budget: {project?.budget || '₹140 Cr'} • Contract: {project?.contract_type || 'EPC Lumpsum'}
+          </p>
+        </div>
+
+        <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+          <Link
+            to={`/projects/${projectId}/reports/upload`}
+            className="btn btn-primary"
+            style={{ display: 'flex', alignItems: 'center', gap: '6px', textDecoration: 'none' }}
+          >
+            <UploadCloud size={16} />
+            <span>Upload Daily Log</span>
+          </Link>
+          <Link
+            to={`/projects/${projectId}/reconciliation`}
+            className="btn btn-secondary"
+            style={{ display: 'flex', alignItems: 'center', gap: '6px', textDecoration: 'none' }}
+          >
+            <GitCompare size={16} />
+            <span>Reconciliation</span>
+          </Link>
+        </div>
+      </div>
+
+      {/* 2. Bionis Reference "Overall Wellness" Section -> Adapted to Project Health Overview */}
+      <section
+        className="bionis-card bionis-card-glow-blue"
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '1.5rem',
+          padding: '1.5rem 2rem',
+        }}
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', maxWidth: '640px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+            <span
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.35rem',
+                fontSize: '0.75rem',
+                fontWeight: 600,
+                padding: '0.25rem 0.75rem',
+                borderRadius: 'var(--radius-md)',
+                backgroundColor: scheduleVariance >= 0 ? 'rgba(16, 185, 129, 0.12)' : 'rgba(245, 158, 11, 0.14)',
+                color: scheduleVariance >= 0 ? 'var(--confidence-high)' : 'var(--chart-warn)',
+              }}
+            >
+              <span
+                style={{
+                  width: '6px',
+                  height: '6px',
+                  borderRadius: '50%',
+                  backgroundColor: scheduleVariance >= 0 ? 'var(--confidence-high)' : 'var(--chart-warn)',
+                }}
+              />
+              {scheduleVariance >= 0 ? 'ON SCHEDULE' : 'MINOR VARIANCE DETECTED'}
+            </span>
+            <span className="bionis-insight-badge">
+              <Sparkles size={12} color="var(--accent-blue)" />
+              Automated AI Audit
             </span>
           </div>
 
-          {/* Key comparison metrics */}
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(3, 1fr)',
-              gap: '16px',
-              padding: '16px',
-              backgroundColor: 'var(--bg-surface)',
-              borderRadius: 'var(--radius-md)',
-              marginBottom: '24px',
-              textAlign: 'center',
-            }}
-          >
-            <div>
-              <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-                Planned Progress
-              </div>
-              <div style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--text-primary)', marginTop: '4px' }}>
-                {plannedAvg}%
-              </div>
-            </div>
-            <div>
-              <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-                Actual Recorded
-              </div>
-              <div style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--accent-blue)', marginTop: '4px' }}>
-                {actualAvg}%
-              </div>
-            </div>
-            <div>
-              <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-                Schedule Variance
-              </div>
-              <div
+          <h2 style={{ fontSize: '1.25rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
+            Overall Project Execution Health
+          </h2>
+
+          <p style={{ fontSize: '0.9rem', lineHeight: 1.5, color: 'var(--text-secondary)', margin: 0 }}>
+            Physical execution is tracking at{' '}
+            <strong style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{actualAvg}%</strong> against contractual target{' '}
+            <strong style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{plannedAvg}%</strong>. Daily progress reports have auto-reconciled{' '}
+            <strong style={{ color: 'var(--confidence-high)', fontWeight: 600 }}>{matchedCount} schedule tasks</strong> with sentence-transformer embeddings.
+          </p>
+        </div>
+
+        {/* Circular Progress Gauge */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', flexShrink: 0 }}>
+          <ScoreDonut
+            value={healthScore}
+            max={100}
+            label="Health"
+            sublabel={`${actualAvg}% Done`}
+            size={120}
+            color={scheduleVariance >= 0 ? 'var(--confidence-high)' : 'var(--accent-blue)'}
+          />
+        </div>
+      </section>
+
+      {/* 3. 4 Modernized Bionis Key Metric Cards */}
+      <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
+        <KPICard
+          title="Physical Progress"
+          value={`${actualAvg}%`}
+          icon={Activity}
+          variant="primary"
+          trend={{
+            value: scheduleVariance >= 0 ? `+${scheduleVariance}%` : `${scheduleVariance}%`,
+            isPositive: scheduleVariance >= 0,
+            label: 'vs baseline target',
+          }}
+        />
+        <KPICard
+          title="Reconciled Matches"
+          value={matchedCount}
+          unit="activities"
+          icon={CheckCircle2}
+          variant="success"
+          trend={{
+            value: `${Math.round((matchedCount / (schedule.length || 1)) * 100)}%`,
+            isPositive: true,
+            label: 'schedule covered',
+          }}
+        />
+        <KPICard
+          title="Daily Reports"
+          value={reports.length}
+          unit="logs"
+          icon={FileText}
+          variant="info"
+          trend={{
+            value: '+1 today',
+            isPositive: true,
+            label: 'latest report uploaded',
+          }}
+        />
+        <KPICard
+          title="Needs Review"
+          value={reviewCount}
+          unit="tasks"
+          subtitle={`${unmatched.length} in unmatched pool`}
+          icon={AlertTriangle}
+          variant={reviewCount > 0 ? 'warning' : 'success'}
+          trend={{
+            value: reviewCount > 0 ? `${reviewCount} pending` : 'All cleared',
+            isPositive: reviewCount === 0,
+            label: reviewCount > 0 ? 'requires sign-off' : 'verified',
+          }}
+        />
+      </section>
+
+      {/* 4. Dual Section: Activity & Progress Trend Chart + Discipline Factors */}
+      <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '1.5rem' }}>
+        {/* Left: Recharts Trend Area */}
+        <article className="bionis-card" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span
                 style={{
-                  fontSize: '1.6rem',
-                  fontWeight: 800,
-                  color: scheduleVariance < 0 ? '#ef4444' : 'var(--confidence-high)',
-                  marginTop: '4px',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  gap: '4px',
+                  width: '32px',
+                  height: '32px',
+                  borderRadius: 'var(--radius-sm)',
+                  backgroundColor: 'var(--metric-steps)',
+                  color: '#fff',
                 }}
               >
-                {scheduleVariance < 0 ? <TrendingDown size={20} /> : <TrendingUp size={20} />}
-                {scheduleVariance > 0 ? `+${scheduleVariance}%` : `${scheduleVariance}%`}
+                <Activity size={16} />
+              </span>
+              <div>
+                <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
+                  Progress Trend & Trajectory
+                </h3>
+                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: 0 }}>
+                  Planned Schedule baseline vs Actual Physical progress
+                </p>
               </div>
             </div>
+            <span className="bionis-insight-badge">Last 14 Days</span>
           </div>
 
-          {/* Discipline Breakdown */}
-          <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '14px' }}>
-            Discipline Variance Breakdown
+          <div style={{ height: '240px', width: '100%' }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={trendData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="progressActualGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="var(--chart-steps)" stopOpacity={0.4} />
+                    <stop offset="100%" stopColor="var(--chart-steps)" stopOpacity={0.0} />
+                  </linearGradient>
+                  <linearGradient id="progressPlannedGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="var(--chart-recovery)" stopOpacity={0.3} />
+                    <stop offset="100%" stopColor="var(--chart-recovery)" stopOpacity={0.0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid vertical={false} stroke="var(--chart-grid)" strokeDasharray="4 4" />
+                <XAxis
+                  dataKey="day"
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fill: 'var(--text-muted)', fontSize: 11 }}
+                />
+                <YAxis
+                  domain={[40, 100]}
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fill: 'var(--text-muted)', fontSize: 11 }}
+                  tickFormatter={(v) => `${v}%`}
+                />
+                <Tooltip
+                  cursor={{ stroke: 'rgba(255,255,255,0.2)', strokeWidth: 1, strokeDasharray: '4 4' }}
+                  content={
+                    <BionisChartTooltip
+                      items={[
+                        { label: 'Actual Progress', dataKey: 'actual', formatValue: (v) => `${v}%`, color: 'var(--chart-steps)' },
+                        { label: 'Planned Baseline', dataKey: 'planned', formatValue: (v) => `${v}%`, color: 'var(--chart-recovery)' },
+                      ]}
+                    />
+                  }
+                />
+                <Area
+                  type="monotone"
+                  dataKey="actual"
+                  stroke="var(--chart-steps)"
+                  strokeWidth={2.5}
+                  fill="url(#progressActualGrad)"
+                  dot={false}
+                  activeDot={{ r: 5, fill: 'var(--chart-steps)', stroke: '#0f172a', strokeWidth: 2 }}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="planned"
+                  stroke="var(--chart-recovery)"
+                  strokeWidth={2}
+                  strokeDasharray="4 4"
+                  fill="url(#progressPlannedGrad)"
+                  dot={false}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-            {disciplineStats.map((d) => {
-              const diff = d.actual - d.planned;
-              return (
-                <div key={d.name}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12.5px', marginBottom: '4px' }}>
-                    <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{d.name}</span>
-                    <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                      <span style={{ color: 'var(--text-muted)', fontSize: '11.5px' }}>Plan: {d.planned}%</span>
-                      <span style={{ fontWeight: 700, color: 'var(--accent-blue)' }}>Act: {d.actual}%</span>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1.5rem', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: 'var(--chart-steps)' }} />
+              <span>Actual Execution</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: 'var(--chart-recovery)' }} />
+              <span>Baseline Plan (P6)</span>
+            </div>
+          </div>
+        </article>
+
+        {/* Right: Discipline Variance Factors (Bionis Recovery Factors Pattern) */}
+        <article className="bionis-card bionis-card-glow-emerald" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '1rem' }}>
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.85rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: '30px',
+                    height: '30px',
+                    borderRadius: 'var(--radius-sm)',
+                    backgroundColor: 'var(--insight-actions)',
+                    color: '#fff',
+                  }}
+                >
+                  <Layers size={16} />
+                </span>
+                <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
+                  Discipline Execution Breakdown
+                </h3>
+              </div>
+              <span className="bionis-insight-badge">6 Disciplines</span>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              {disciplineStats.map((d) => {
+                const diff = d.actual - d.planned;
+                return (
+                  <div key={d.name} className="bionis-factor-row">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1 }}>
+                      <span style={{ width: '7px', height: '7px', borderRadius: '50%', backgroundColor: d.color, flexShrink: 0 }} />
+                      <span style={{ fontSize: '0.8rem', fontWeight: 500, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {d.name}
+                      </span>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
+                      <div className="bionis-factor-bar-track">
+                        <div
+                          className="bionis-factor-bar-fill"
+                          style={{
+                            width: `${d.actual}%`,
+                            backgroundColor: d.color,
+                          }}
+                        />
+                      </div>
+                      <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-primary)', width: '38px', textAlign: 'right' }}>
+                        {d.actual}%
+                      </span>
                       <span
                         style={{
-                          fontSize: '11px',
+                          fontSize: '0.7rem',
                           fontWeight: 700,
-                          color: diff < 0 ? '#ef4444' : diff > 0 ? 'var(--confidence-high)' : 'var(--text-muted)',
+                          width: '42px',
+                          textAlign: 'right',
+                          color: diff < 0 ? 'var(--confidence-low)' : diff > 0 ? 'var(--confidence-high)' : 'var(--text-muted)',
                         }}
                       >
                         {diff > 0 ? `+${diff}%` : `${diff}%`}
                       </span>
                     </div>
                   </div>
-                  <ProgressBar progress={d.actual} color={d.color} height="6px" />
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Matching Health & System Integrity */}
-        <div className="glass-card" style={{ padding: '24px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-          <div>
-            <h2 style={{ fontSize: '1.15rem', fontWeight: 700, marginBottom: '4px' }}>Reconciliation Health</h2>
-            <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '20px' }}>
-              Semantic mapping health across extracted tasks
-            </p>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 14px', backgroundColor: 'var(--bg-surface)', borderRadius: 'var(--radius-sm)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: 'var(--confidence-high)' }} />
-                  <div>
-                    <div style={{ fontSize: '13px', fontWeight: 600 }}>Auto-Linked (≥ 85%)</div>
-                    <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>High semantic certainty</div>
-                  </div>
-                </div>
-                <span style={{ fontWeight: 700, color: 'var(--confidence-high)' }}>
-                  {matchedCount} {matchedCount === 1 ? 'task' : 'tasks'}
-                </span>
-              </div>
-
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 14px', backgroundColor: 'var(--bg-surface)', borderRadius: 'var(--radius-sm)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: 'var(--confidence-review)' }} />
-                  <div>
-                    <div style={{ fontSize: '13px', fontWeight: 600 }}>Needs Review (70-84%)</div>
-                    <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Ambiguous / alternative matches</div>
-                  </div>
-                </div>
-                <span style={{ fontWeight: 700, color: 'var(--confidence-review)' }}>
-                  {reviewCount} {reviewCount === 1 ? 'task' : 'tasks'}
-                </span>
-              </div>
-
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 14px', backgroundColor: 'var(--bg-surface)', borderRadius: 'var(--radius-sm)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#ef4444' }} />
-                  <div>
-                    <div style={{ fontSize: '13px', fontWeight: 600 }}>Unmatched Pool (&lt; 70%)</div>
-                    <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>No high-scoring baseline candidate</div>
-                  </div>
-                </div>
-                <span style={{ fontWeight: 700, color: '#ef4444' }}>
-                  {unmatchedCount} {unmatchedCount === 1 ? 'task' : 'tasks'}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <Link to={`/projects/${projectId}/reconciliation`} className="btn btn-secondary btn-sm" style={{ width: '100%', marginTop: '20px' }}>
-            Open Full Reconciliation Table
-          </Link>
-        </div>
-      </div>
-
-      {/* Master Baseline Activity Performance Table (Teammate feature integrated) */}
-      <div className="glass-card" style={{ padding: '24px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-          <div>
-            <h2 style={{ fontSize: '1.15rem', fontWeight: 700 }}>Activity Schedule Performance</h2>
-            <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-              Detailed planned vs actual progress tracking for master baseline tasks
-            </p>
-          </div>
-          <Link to={`/projects/${projectId}/schedule`} style={{ fontSize: '12.5px', color: 'var(--accent-blue)', textDecoration: 'none', fontWeight: 600 }}>
-            View Master Schedule WBS →
-          </Link>
-        </div>
-
-        <div className="data-table-container">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th style={{ width: '110px' }}>Activity ID</th>
-                <th>Activity Description</th>
-                <th style={{ width: '130px' }}>Discipline</th>
-                <th style={{ width: '110px' }}>Planned</th>
-                <th style={{ width: '110px' }}>Actual</th>
-                <th style={{ width: '110px' }}>Variance</th>
-                <th style={{ width: '120px', textAlign: 'right' }}>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {schedule.slice(0, 6).map((item) => {
-                const plan = item.planned_progress ?? 70;
-                const act = item.actual_progress ?? 65;
-                const variance = act - plan;
-                const status = item.status || (variance < -10 ? 'DELAYED' : variance < 0 ? 'ATTENTION' : 'ON_TRACK');
-
-                return (
-                  <tr key={item.id}>
-                    <td>
-                      <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--accent-blue)', fontSize: '12.5px' }}>
-                        {item.activity_code}
-                      </span>
-                    </td>
-                    <td style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '13px' }}>
-                      {item.activity_description}
-                    </td>
-                    <td style={{ fontSize: '12px', color: 'var(--text-secondary)', textTransform: 'capitalize' }}>
-                      {item.discipline.replace('_', ' ')}
-                    </td>
-                    <td style={{ fontSize: '13px', fontWeight: 600 }}>
-                      {plan}%
-                    </td>
-                    <td style={{ fontSize: '13px', fontWeight: 700, color: 'var(--accent-blue)' }}>
-                      {act}%
-                    </td>
-                    <td style={{ fontSize: '13px', fontWeight: 700, color: variance < 0 ? '#ef4444' : 'var(--confidence-high)' }}>
-                      {variance > 0 ? `+${variance}%` : `${variance}%`}
-                    </td>
-                    <td style={{ textAlign: 'right' }}>
-                      <span
-                        style={{
-                          fontSize: '10.5px',
-                          fontWeight: 700,
-                          padding: '3px 8px',
-                          borderRadius: '4px',
-                          backgroundColor:
-                            status === 'COMPLETED' || status === 'ON_TRACK'
-                              ? 'rgba(16, 185, 129, 0.15)'
-                              : status === 'ATTENTION'
-                              ? 'rgba(245, 158, 11, 0.15)'
-                              : 'rgba(239, 68, 68, 0.15)',
-                          color:
-                            status === 'COMPLETED' || status === 'ON_TRACK'
-                              ? 'var(--confidence-high)'
-                              : status === 'ATTENTION'
-                              ? 'var(--confidence-review)'
-                              : '#ef4444',
-                          textTransform: 'uppercase',
-                        }}
-                      >
-                        {status.replace('_', ' ')}
-                      </span>
-                    </td>
-                  </tr>
                 );
               })}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Bottom Grid: Live Field Updates & Review Queue */}
-      <div className="overview-grid-sub">
-        {/* Live Field Updates Timeline (Teammate Feature) */}
-        <div className="glass-card" style={{ padding: '24px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Activity size={18} style={{ color: 'var(--accent-blue)' }} />
-              <h2 style={{ fontSize: '1.15rem', fontWeight: 700, margin: 0 }}>Live Field Updates Feed</h2>
             </div>
-            <Link to={`/projects/${projectId}/reports`} style={{ fontSize: '12px', color: 'var(--accent-blue)', textDecoration: 'none' }}>
-              All Daily Reports →
-            </Link>
           </div>
 
-          <FieldUpdateFeed updates={fieldUpdates} projectId={projectId} limit={4} />
-        </div>
-
-        {/* Pending Reviews Queue */}
-        <div className="glass-card" style={{ padding: '24px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-            <h2 style={{ fontSize: '1.15rem', fontWeight: 700 }}>Pending Review Queue</h2>
-            <Link to={`/projects/${projectId}/review`} style={{ fontSize: '12px', color: 'var(--accent-blue)', textDecoration: 'none' }}>
-              View Review Hub →
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '0.75rem', borderTop: '1px solid var(--border-subtle)' }}>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+              Target alignment: {scheduleVariance >= 0 ? 'Optimal' : 'Intervention Recommended'}
+            </span>
+            <Link
+              to={`/projects/${projectId}/schedule`}
+              style={{ fontSize: '0.75rem', color: 'var(--accent-blue)', display: 'flex', alignItems: 'center', gap: '4px', textDecoration: 'none', fontWeight: 500 }}
+            >
+              View WBS Baseline <ArrowRight size={13} />
             </Link>
           </div>
+        </article>
+      </section>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            {pendingReviews.map((m) => (
-              <div
-                key={m.id}
+      {/* 5. Lower Section: Review Queue Preview & Live Activity Feed */}
+      <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '1.5rem' }}>
+        {/* Pending Review Queue Preview */}
+        <article className="bionis-card" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span
                 style={{
-                  padding: '12px 16px',
-                  backgroundColor: 'var(--bg-surface)',
-                  borderRadius: 'var(--radius-sm)',
                   display: 'flex',
-                  justifyContent: 'space-between',
                   alignItems: 'center',
+                  justifyContent: 'center',
+                  width: '30px',
+                  height: '30px',
+                  borderRadius: 'var(--radius-sm)',
+                  backgroundColor: 'var(--metric-heart)',
+                  color: '#fff',
                 }}
               >
-                <div>
-                  <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>
-                    {m.extracted_activity?.activity_description}
+                <Clock size={16} />
+              </span>
+              <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
+                Planner Review Queue
+              </h3>
+            </div>
+            <span
+              style={{
+                fontSize: '0.75rem',
+                fontWeight: 600,
+                color: reviewCount > 0 ? 'var(--chart-warn)' : 'var(--confidence-high)',
+                backgroundColor: reviewCount > 0 ? 'var(--chart-warn-bg)' : 'var(--confidence-high-bg)',
+                padding: '3px 8px',
+                borderRadius: '6px',
+              }}
+            >
+              {reviewCount} Pending
+            </span>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+            {pendingReviews.length > 0 ? (
+              pendingReviews.slice(0, 3).map((item) => (
+                <div
+                  key={item.id}
+                  style={{
+                    padding: '0.75rem',
+                    borderRadius: 'var(--radius-md)',
+                    background: 'var(--bg-surface-elevated)',
+                    border: '1px solid var(--border-subtle)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '4px',
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                      Match #{item.id.slice(0, 8)}
+                    </span>
+                    <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--chart-warn)' }}>
+                      {Math.round((item.confidence_score ?? 0.75) * 100)}% Match
+                    </span>
                   </div>
-                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                    Suggested: <strong style={{ color: 'var(--accent-blue)' }}>{m.schedule_plan?.activity_code}</strong>
-                  </div>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span className="confidence-badge review">{(m.confidence_score * 100).toFixed(0)}%</span>
-                  <Link to={`/projects/${projectId}/review/${m.id}`} className="btn btn-secondary btn-sm" style={{ padding: '4px 8px' }}>
-                    Review
+                  <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: 0 }}>
+                    Extracted task needs planner validation against schedule baseline.
+                  </p>
+                  <Link
+                    to={`/projects/${projectId}/review/${item.id}`}
+                    style={{
+                      fontSize: '0.75rem',
+                      color: 'var(--accent-blue)',
+                      marginTop: '4px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      textDecoration: 'none',
+                    }}
+                  >
+                    <Eye size={12} /> Review & Approve
                   </Link>
                 </div>
+              ))
+            ) : (
+              <div
+                style={{
+                  padding: '1.5rem',
+                  textAlign: 'center',
+                  color: 'var(--text-muted)',
+                  fontSize: '0.85rem',
+                  borderRadius: 'var(--radius-md)',
+                  background: 'var(--bg-surface-elevated)',
+                }}
+              >
+                <CheckCircle2 size={24} color="var(--confidence-high)" style={{ margin: '0 auto 8px auto' }} />
+                <span>All matches verified! No items awaiting human review.</span>
               </div>
-            ))}
+            )}
           </div>
-        </div>
-      </div>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <Link
+              to={`/projects/${projectId}/review`}
+              style={{ fontSize: '0.8rem', color: 'var(--accent-blue)', display: 'flex', alignItems: 'center', gap: '4px', textDecoration: 'none' }}
+            >
+              Go to Full Review Queue <ArrowRight size={13} />
+            </Link>
+          </div>
+        </article>
+
+        {/* Live Field Observations Feed */}
+        <article className="bionis-card" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: '30px',
+                  height: '30px',
+                  borderRadius: 'var(--radius-sm)',
+                  backgroundColor: 'var(--metric-sleep)',
+                  color: '#fff',
+                }}
+              >
+                <CalendarRange size={16} />
+              </span>
+              <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
+                Recent Field Updates
+              </h3>
+            </div>
+            <Link
+              to={`/projects/${projectId}/reports`}
+              style={{ fontSize: '0.75rem', color: 'var(--accent-blue)', textDecoration: 'none' }}
+            >
+              All Reports ({reports.length})
+            </Link>
+          </div>
+
+          <div style={{ overflowY: 'auto', maxHeight: '280px' }}>
+            <FieldUpdateFeed updates={fieldUpdates} />
+          </div>
+        </article>
+      </section>
     </div>
   );
 };

@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Layers, ArrowRight } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { UserRole } from '../../lib/types';
+import { ThemeToggle } from '../../components/common/ThemeToggle';
 
 export const SignupPage: React.FC = () => {
   const { signIn } = useAuth();
@@ -21,14 +22,17 @@ export const SignupPage: React.FC = () => {
   };
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px', backgroundColor: 'var(--bg-primary)' }}>
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px', backgroundColor: 'var(--bg-primary)', position: 'relative' }}>
+      <div style={{ position: 'absolute', top: 20, right: 24 }}>
+        <ThemeToggle size="sm" />
+      </div>
       <div className="glass-card" style={{ maxWidth: '480px', width: '100%', padding: '36px' }}>
         {/* Brand */}
         <div style={{ textAlign: 'center', marginBottom: '24px' }}>
           <Link to="/" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '48px', height: '48px', margin: '0 auto 12px', background: 'linear-gradient(135deg, #0284c7, #38bdf8)', borderRadius: '12px', color: '#ffffff', textDecoration: 'none' }}>
             <Layers size={26} />
           </Link>
-          <h1 style={{ fontSize: '1.4rem', fontWeight: 700, color: '#ffffff', marginBottom: '4px' }}>Create OnGround Account</h1>
+          <h1 style={{ fontSize: '1.4rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '4px' }}>Create OnGround Account</h1>
           <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>Start managing progress reconciliation across your projects</p>
         </div>
 
