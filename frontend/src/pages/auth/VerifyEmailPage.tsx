@@ -1,32 +1,85 @@
-import React, { useState } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Layers, ArrowRight, CheckCircle2 } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Link, useLocation, useSearchParams } from 'react-router-dom';
+import { EmailOtpType } from '@supabase/supabase-js';
+import { AlertCircle, ArrowRight, Layers, Loader2 } from 'lucide-react';
 import { ThemeToggle } from '../../components/common/ThemeToggle';
+import { supabase } from '../../lib/supabaseClient';
+
+const emailOtpTypes: EmailOtpType[] = ['signup', 'email', 'email_change', 'email_change_current', 'email_change_new', 'magiclink', 'recovery', 'invite'];
 
 export const VerifyEmailPage: React.FC = () => {
-  const navigate = useNavigate();
   const location = useLocation();
-  const userEmail = (location.state as any)?.email || 'planner@onground.com';
-  const [code, setCode] = useState(['', '', '', '', '', '']);
+  const [searchParams] = useSearchParams();
+  const initialEmail = (location.state as { email?: string } | null)?.email || searchParams.get('email') || '';
+  const [email, setEmail] = useState(initialEmail);
+  const [code, setCode] = useState('');
   const [verified, setVerified] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const tokenHash = searchParams.get('token_hash');
+  const rawType = searchParams.get('type');
 
-  const handleCodeChange = (index: number, val: string) => {
-    if (val.length > 1) val = val[0];
-    const updated = [...code];
-    updated[index] = val;
-    setCode(updated);
+  useEffect(() => {
+    if (!tokenHash || !rawType || !emailOtpTypes.includes(rawType as EmailOtpType)) return;
 
-    // Auto-focus next
-    if (val && index < 5) {
-      const nextInput = document.getElementById(`otp-${index + 1}`);
-      nextInput?.focus();
+    let active = true;
+    const verifyLink = async () => {
+      setBusy(true);
+      setError(null);
+      const { error: verifyError } = await supabase.auth.verifyOtp({
+        token_hash: tokenHash,
+        type: rawType as EmailOtpType,
+      });
+      if (!active) return;
+      if (verifyError) setError(verifyError.message);
+      else setVerified(true);
+      setBusy(false);
+    };
+
+    void verifyLink();
+    return () => {
+      active = false;
+    };
+  }, [rawType, tokenHash]);
+
+  const handleVerify = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setError(null);
+    setNotice(null);
+    setBusy(true);
+    try {
+      const { error: verifyError } = await supabase.auth.verifyOtp({
+        email: email.trim(),
+        token: code.trim(),
+        type: 'signup',
+      });
+      if (verifyError) throw verifyError;
+      setVerified(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Email verification failed. Check the code and try again.');
+    } finally {
+      setBusy(false);
     }
   };
 
-  const handleVerify = (e: React.FormEvent) => {
-    e.preventDefault();
-    setVerified(true);
-    setTimeout(() => navigate('/dashboard'), 1500);
+  const resendCode = async () => {
+    setError(null);
+    setNotice(null);
+    setBusy(true);
+    try {
+      const { error: resendError } = await supabase.auth.resend({
+        type: 'signup',
+        email: email.trim(),
+        options: { emailRedirectTo: `${window.location.origin}/verify-email` },
+      });
+      if (resendError) throw resendError;
+      setNotice('A new verification email has been sent.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not resend the verification email.');
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -39,62 +92,65 @@ export const VerifyEmailPage: React.FC = () => {
           <Link to="/" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '48px', height: '48px', margin: '0 auto 12px', background: 'linear-gradient(135deg, #0284c7, #38bdf8)', borderRadius: '12px', color: '#ffffff', textDecoration: 'none' }}>
             <Layers size={26} />
           </Link>
-          <h1 style={{ fontSize: '1.4rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '4px' }}>Verify Your Email</h1>
+          <h1 style={{ fontSize: '1.4rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '4px' }}>
+            {verified ? 'Email verified' : 'Verify your email'}
+          </h1>
           <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>
-            Enter the 6-digit confirmation code sent to <strong style={{ color: 'var(--text-primary)' }}>{userEmail}</strong>
+            {verified
+              ? 'Your account is confirmed. Continue to your projects.'
+              : 'Enter the six-digit code sent to your email, or open the confirmation link.'}
           </p>
         </div>
 
-        {verified ? (
-          <div style={{ textAlign: 'center', padding: '20px 0' }}>
-            <div style={{ width: '56px', height: '56px', borderRadius: '50%', backgroundColor: 'rgba(16, 185, 129, 0.15)', color: 'var(--confidence-high)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-              <CheckCircle2 size={32} />
-            </div>
-            <h3 style={{ fontSize: '1.2rem', fontWeight: 700, marginBottom: '8px' }}>Email Verified</h3>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '13px', lineHeight: 1.5 }}>
-              Your account has been activated. Launching your executive dashboard...
-            </p>
+        {error && (
+          <div role="alert" className="alert alert-error" style={{ marginBottom: '16px', fontSize: '13px', display: 'flex', gap: '8px' }}>
+            <AlertCircle size={16} /> {error}
           </div>
+        )}
+        {notice && <p role="status" style={{ color: 'var(--confidence-high)', fontSize: '13px', marginBottom: '16px' }}>{notice}</p>}
+
+        {verified ? (
+          <Link to="/projects" className="btn btn-primary" style={{ width: '100%', padding: '12px' }}>
+            Continue to projects <ArrowRight size={16} />
+          </Link>
         ) : (
           <form onSubmit={handleVerify}>
-            <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', margin: '24px 0' }}>
-              {code.map((digit, idx) => (
-                <input
-                  key={idx}
-                  id={`otp-${idx}`}
-                  type="text"
-                  maxLength={1}
-                  value={digit}
-                  onChange={(e) => handleCodeChange(idx, e.target.value)}
-                  className="form-input"
-                  style={{
-                    width: '44px',
-                    height: '48px',
-                    textAlign: 'center',
-                    fontSize: '18px',
-                    fontWeight: 700,
-                    padding: 0,
-                  }}
-                />
-              ))}
+            <div className="form-group">
+              <label className="form-label" htmlFor="verification-email">Email address</label>
+              <input
+                id="verification-email"
+                type="email"
+                required
+                autoComplete="email"
+                className="form-input"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+              />
             </div>
-
-            <button type="submit" className="btn btn-primary" style={{ width: '100%', padding: '12px' }}>
-              Confirm & Continue <ArrowRight size={16} />
+            <div className="form-group">
+              <label className="form-label" htmlFor="verification-code">Six-digit code</label>
+              <input
+                id="verification-code"
+                type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                minLength={6}
+                maxLength={6}
+                pattern="[0-9]{6}"
+                required
+                className="form-input"
+                value={code}
+                onChange={(event) => setCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
+              />
+            </div>
+            <button type="submit" className="btn btn-primary" style={{ width: '100%', padding: '12px' }} disabled={busy}>
+              {busy ? <Loader2 size={16} className="spin" /> : <>Verify email <ArrowRight size={16} /></>}
+            </button>
+            <button type="button" className="btn btn-secondary" style={{ width: '100%', padding: '12px', marginTop: '10px' }} onClick={resendCode} disabled={busy || !email.trim()}>
+              Resend verification email
             </button>
           </form>
         )}
-
-        <div style={{ marginTop: '24px', textAlign: 'center', fontSize: '12px', color: 'var(--text-muted)' }}>
-          Didn&apos;t receive a code?{' '}
-          <button
-            type="button"
-            onClick={() => setCode(['2', '6', '1', '2', '2', '0'])}
-            style={{ background: 'none', border: 'none', color: 'var(--accent-blue)', cursor: 'pointer', fontWeight: 600 }}
-          >
-            Auto-fill demo code
-          </button>
-        </div>
       </div>
     </div>
   );

@@ -8,7 +8,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { apiClient, formatApiErrorMessage } from '../../lib/apiClient';
-import { ExtractionRecord } from '../../lib/types';
+import { ReportItem } from '../../lib/types';
 import { LoadingSkeleton } from '../../components/common/LoadingSkeleton';
 import { EmptyState } from '../../components/common/EmptyState';
 import { ErrorState } from '../../components/common/ErrorState';
@@ -16,12 +16,12 @@ import { Toast, ToastMessage } from '../../components/common/Toast';
 
 export const ProjectReportsPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const projectId = id || 'proj-01';
+  const projectId = id || '';
   const navigate = useNavigate();
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [reports, setReports] = useState<ExtractionRecord[]>([]);
+  const [reports, setReports] = useState<ReportItem[]>([]);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [toast, setToast] = useState<ToastMessage | null>(null);
@@ -30,7 +30,7 @@ export const ProjectReportsPage: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const data = await apiClient.getReports();
+      const data = await apiClient.getReports({ project_id: projectId });
       setReports(data || []);
     } catch (err: any) {
       console.error('Failed to load reports from API', err);
@@ -44,23 +44,16 @@ export const ProjectReportsPage: React.FC = () => {
     loadReports();
   }, []);
 
-  const getFileName = (url: string) => {
-    if (!url) return 'Daily Report';
-    const clean = url.split('?')[0];
-    const parts = clean.split(/[/\\]/);
-    return parts[parts.length - 1] || 'Daily Report';
-  };
+  const getFileName = (fileName: string) => fileName || 'Daily Report';
 
-  const getFileType = (rep: ExtractionRecord) => {
-    if (rep.file_type) return rep.file_type.toUpperCase();
-    const name = getFileName(rep.file_url);
-    const ext = name.split('.').pop();
-    return ext ? ext.toUpperCase() : 'DOCUMENT';
+  const getFileType = (report: ReportItem) => {
+    const type = report.file_extension || report.file_type;
+    return type ? type.replace(/^\./, '').toUpperCase() : 'DOCUMENT';
   };
 
   const filtered = reports.filter((r) => {
     const term = search.toLowerCase();
-    const fileName = getFileName(r.file_url).toLowerCase();
+    const fileName = getFileName(r.display_name || r.file_name).toLowerCase();
     const uploader = (r.uploaded_by || '').toLowerCase();
     const matchesSearch = fileName.includes(term) || uploader.includes(term) || r.id.toLowerCase().includes(term);
     const matchesStatus =
@@ -183,7 +176,7 @@ export const ProjectReportsPage: React.FC = () => {
                       <FileText size={18} style={{ color: 'var(--accent-blue)', flexShrink: 0 }} />
                       <div>
                         <div style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '13.5px' }}>
-                          {getFileName(rep.file_url)}
+                          {getFileName(rep.display_name || rep.file_name)}
                         </div>
                         <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
                           Type: {getFileType(rep)}
@@ -195,7 +188,7 @@ export const ProjectReportsPage: React.FC = () => {
                     {rep.id ? `${rep.id.slice(0, 8)}...` : '—'}
                   </td>
                   <td style={{ fontSize: '12.5px', color: 'var(--text-muted)' }}>
-                    {rep.created_at ? new Date(rep.created_at).toLocaleDateString() : '—'}
+                    {rep.uploaded_at ? new Date(rep.uploaded_at).toLocaleDateString() : '—'}
                   </td>
                   <td style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
                     {rep.uploaded_by ? (

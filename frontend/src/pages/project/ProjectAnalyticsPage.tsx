@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
 import { RefreshCw, CheckCircle2, Clock, XCircle, FileText, Activity, ShieldCheck, HelpCircle } from 'lucide-react';
 import { apiClient, formatApiErrorMessage } from '../../lib/apiClient';
 import { AnalyticsOut } from '../../lib/types';
@@ -9,6 +10,8 @@ import { ScoreDonut } from '../../components/common/ScoreDonut';
 import { KPICard } from '../../components/common/KPICard';
 
 export const ProjectAnalyticsPage: React.FC = () => {
+  const { id } = useParams<{ id: string }>();
+  const projectId = id || '';
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [analytics, setAnalytics] = useState<AnalyticsOut | null>(null);
@@ -17,7 +20,7 @@ export const ProjectAnalyticsPage: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const data = await apiClient.getAnalytics();
+      const data = await apiClient.getAnalytics(projectId);
       setAnalytics(data);
     } catch (err: any) {
       console.error('Failed to load project analytics from API', err);
@@ -29,7 +32,7 @@ export const ProjectAnalyticsPage: React.FC = () => {
 
   useEffect(() => {
     loadAnalytics();
-  }, []);
+  }, [projectId]);
 
   if (loading) {
     return (

@@ -7,7 +7,6 @@
 import { supabase } from './supabaseClient';
 import {
   SchedulePlanItem,
-  ExtractionRecord,
   ExtractedActivity,
   ScheduleMatch,
   MatchResult,
@@ -17,9 +16,70 @@ import {
   ConfirmResponse,
   RejectResponse,
   ReassignResponse,
+  Project,
+  ReportItem,
+  TeamMember,
+  ExtendedRole,
+  ProjectNotification,
+  FieldUpdateRecord,
 } from './types';
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000').replace(/\/$/, '');
+
+function requireProjectId(projectId?: string): string {
+  if (!projectId) throw new ApiError(400, 'A project must be selected before loading project data.');
+  return projectId;
+}
+
+function mapProject(row: any): Project {
+  const stats = row.stats || {};
+  return {
+    id: row.id,
+    name: row.name,
+    code: row.code,
+    client: row.client || '',
+    location: row.location || '',
+    contract_type: row.contract_type || '',
+    budget: row.budget == null ? '' : `${row.currency || 'INR'} ${row.budget}`,
+    status: row.status,
+    progress: stats.progress || 0,
+    start_date: row.start_date || '',
+    end_date: row.end_date || '',
+    created_at: row.created_at || '',
+    reports_count: stats.reports_count || 0,
+    activities_count: stats.activities_count || 0,
+    matched_count: stats.matched_count || 0,
+    review_count: stats.review_count || 0,
+    unmatched_count: stats.unmatched_count || 0,
+    team_size: stats.team_size || 0,
+  };
+}
+
+function mapReport(row: any): ReportItem {
+  const fileName = row.display_name || row.file_name || 'Untitled report';
+  const fileSize = row.file_size_bytes == null ? '' : `${row.file_size_bytes} bytes`;
+  const fileType = String(row.file_extension || '').replace(/^\\./, '').toLowerCase();
+  return {
+    id: row.id,
+    project_id: row.project_id,
+    file_name: fileName,
+    display_name: row.display_name || null,
+    file_size: fileSize,
+    file_size_bytes: row.file_size_bytes ?? null,
+    file_extension: row.file_extension || null,
+    file_type: fileType as ReportItem['file_type'],
+    status: row.status,
+    uploaded_by: row.uploaded_by || 'Unknown',
+    uploaded_at: row.created_at || '',
+    activities_count: row.activities_count || 0,
+    matched_count: row.matched_count || 0,
+    review_count: row.review_count || 0,
+    unmatched_count: row.unmatched_count || 0,
+    error_message: row.error_message || undefined,
+    archived_at: row.archived_at || undefined,
+  };
+}
+
 
 export class ApiError extends Error {
   status: number;
@@ -133,7 +193,7 @@ export async function trigger401Handling(error: ApiError): Promise<void> {
  * Retrieves Supabase Auth access token from active browser session.
  * Never uses insecure headers or localStorage role fakes.
  */
-async function getAuthHeader(requireAuth = false): Promise<HeadersInit> {
+async function getAuthHeader(requireAuth = true): Promise<HeadersInit> {
   const headers: Record<string, string> = {};
 
   try {
@@ -146,8 +206,9 @@ async function getAuthHeader(requireAuth = false): Promise<HeadersInit> {
       throw err;
     }
   } catch (err) {
-    if (requireAuth && err instanceof ApiError) {
-      throw err;
+    if (requireAuth) {
+      if (err instanceof ApiError) throw err;
+      throw new ApiError(401, 'Unable to verify your session. Please sign in again.', err);
     }
   }
 
@@ -160,7 +221,7 @@ async function getAuthHeader(requireAuth = false): Promise<HeadersInit> {
 async function apiRequest<T>(
   path: string,
   options: RequestInit = {},
-  requireAuth = false
+  requireAuth = true
 ): Promise<T> {
   const authHeaders = await getAuthHeader(requireAuth);
   const url = `${API_BASE_URL}${path.startsWith('/') ? path : `/${path}`}`;
@@ -262,54 +323,178 @@ export const apiClient = {
   // Health
   // ---------------------------------------------------------------------------
   async getHealth(): Promise<{ status: string; version: string }> {
-    return apiRequest<{ status: string; version: string }>('/health');
+    return apiRequest<{ status: string; version: string }>('/health', {}, false);
+  },
+
+  async getProjects(): Promise<Project[]> {
+    const rows = await apiRequest<any[]>('/projects');
+    return rows.map(mapProject);
+  },
+
+  async getProjectById(projectId: string): Promise<Project> {
+    const row = await apiRequest<any>(`/projects/${encodeURIComponent(projectId)}`);
+    return mapProject(row);
+  },
+
+  async createProject(project: Pick<Project, 'name' | 'code'> & Partial<Project>): Promise<Project> {
+    const payload = {
+      name: project.name,
+      code: project.code,
+      client: project.client || null,
+      location: project.location || null,
+      contract_type: project.contract_type || null,
+      budget: project.budget ? Number(project.budget.replace(/[^0-9.]/g, '')) : null,
+      currency: 'INR',
+      start_date: project.start_date || null,
+      end_date: project.end_date || null,
+    };
+    const response = await apiRequest<{ project: any }>('/projects', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    return mapProject(response.project);
+  },
+
+  async updateProject(projectId: string, updates: Partial<Project>): Promise<Project> {
+    const payload: Record<string, unknown> = { ...updates };
+    if (typeof updates.budget === 'string') {
+      payload.budget = updates.budget ? Number(updates.budget.replace(/[^0-9.]/g, '')) : null;
+    }
+    delete payload.id;
+    delete payload.code;
+    delete payload.progress;
+    delete payload.created_at;
+    delete payload.reports_count;
+    delete payload.activities_count;
+    delete payload.matched_count;
+    delete payload.review_count;
+    delete payload.unmatched_count;
+    delete payload.team_size;
+    const response = await apiRequest<{ project: any }>(`/projects/${encodeURIComponent(projectId)}`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    });
+    return mapProject(response.project);
+  },
+
+  async getTeam(projectId: string): Promise<TeamMember[]> {
+    const rows = await apiRequest<any[]>(`/projects/${encodeURIComponent(requireProjectId(projectId))}/team`);
+    return rows.map((row) => ({
+      id: row.id,
+      project_id: row.project_id,
+      name: row.full_name || row.email || 'Unnamed member',
+      email: row.email || '',
+      role: row.role,
+      status: row.status,
+      last_active: row.created_at || '',
+    }));
+  },
+
+  async inviteTeamMember(projectId: string, member: { name: string; email: string; role: ExtendedRole }): Promise<TeamMember> {
+    const response = await apiRequest<{ member: any }>(`/projects/${encodeURIComponent(requireProjectId(projectId))}/team`, {
+      method: 'POST',
+      body: JSON.stringify({ email: member.email, full_name: member.name, role: member.role }),
+    });
+    const row = response.member;
+    return {
+      id: row.id,
+      project_id: row.project_id,
+      name: row.full_name || row.email || member.name,
+      email: row.email || member.email,
+      role: row.role,
+      status: row.status,
+      last_active: row.created_at || '',
+    };
+  },
+
+  async removeTeamMember(projectId: string, memberId: string): Promise<void> {
+    await apiRequest<void>(`/projects/${encodeURIComponent(requireProjectId(projectId))}/team/${encodeURIComponent(memberId)}`, {
+      method: 'DELETE',
+    });
+  },
+
+  async archiveProject(projectId: string): Promise<Project> {
+    const response = await apiRequest<{ project: any }>(`/projects/${encodeURIComponent(requireProjectId(projectId))}/archive`, {
+      method: 'POST',
+    });
+    return mapProject(response.project);
+  },
+
+  async getFieldUpdates(projectId: string): Promise<FieldUpdateRecord[]> {
+    const rows = await apiRequest<any[]>(`/projects/${encodeURIComponent(requireProjectId(projectId))}/field-updates`);
+    return rows.map((row) => ({
+      id: row.id,
+      time: row.time || '',
+      date: row.date || '',
+      source: row.extraction_id,
+      discipline: row.discipline || 'unknown',
+      location: row.location || '',
+      text: row.text,
+      linked_activity_id: row.linked_activity_id,
+      confidence: row.confidence,
+      state: row.state,
+    }));
+  },
+
+  async getActivities(projectId: string): Promise<ExtractedActivity[]> {
+    const rows = await apiRequest<any[]>(`/projects/${encodeURIComponent(requireProjectId(projectId))}/field-updates`);
+    return rows.map((row) => ({
+      id: row.id,
+      extraction_id: row.extraction_id,
+      activity_description: row.text,
+      discipline: row.discipline || 'unknown',
+      start_time: row.time || null,
+      end_time: null,
+      location_reference: row.location || null,
+      extraction_confidence: row.confidence,
+      created_at: row.created_at || '',
+    }));
   },
 
   // ---------------------------------------------------------------------------
   // Schedule
   // ---------------------------------------------------------------------------
-  async getSchedule(params?: {
-    project_id?: string;
+  async getSchedule(params: {
+    project_id: string;
     discipline?: string;
     limit?: number;
     offset?: number;
   }): Promise<SchedulePlanItem[]> {
-    const query = new URLSearchParams();
-    if (params?.project_id) query.append('project_id', params.project_id);
-    if (params?.discipline && params.discipline !== 'all') query.append('discipline', params.discipline);
-    if (params?.limit) query.append('limit', String(params.limit));
-    if (params?.offset) query.append('offset', String(params.offset));
+    const query = new URLSearchParams({ project_id: requireProjectId(params.project_id) });
+    if (params.discipline && params.discipline !== 'all') query.append('discipline', params.discipline);
+    if (params.limit) query.append('limit', String(params.limit));
+    if (params.offset) query.append('offset', String(params.offset));
 
-    const qs = query.toString();
-    return apiRequest<SchedulePlanItem[]>(`/schedule${qs ? `?${qs}` : ''}`);
+    return apiRequest<SchedulePlanItem[]>(`/schedule?${query.toString()}`);
   },
 
   // ---------------------------------------------------------------------------
   // Reports / Extractions
   // ---------------------------------------------------------------------------
-  async getReports(params?: {
-    project_id?: string;
+  async getReports(params: {
+    project_id: string;
     status?: string;
     limit?: number;
     offset?: number;
-  }): Promise<ExtractionRecord[]> {
-    const query = new URLSearchParams();
-    if (params?.project_id) query.append('project_id', params.project_id);
-    if (params?.status && params.status !== 'all') query.append('status', params.status);
-    if (params?.limit) query.append('limit', String(params.limit));
-    if (params?.offset) query.append('offset', String(params.offset));
+  }): Promise<ReportItem[]> {
+    const query = new URLSearchParams({ project_id: requireProjectId(params.project_id) });
+    if (params.status && params.status !== 'all') query.append('status', params.status);
+    if (params.limit) query.append('limit', String(params.limit));
+    if (params.offset) query.append('offset', String(params.offset));
 
-    const qs = query.toString();
-    return apiRequest<ExtractionRecord[]>(`/reports${qs ? `?${qs}` : ''}`);
+    const rows = await apiRequest<any[]>(`/reports?${query.toString()}`);
+    return rows.map(mapReport);
   },
 
   async uploadReport(
     file: File,
-    _projectId?: string,
-    _fileType?: string
+    projectId: string,
+    fileType?: string
   ): Promise<{ extraction_id: string; file_url: string; status: string }> {
     const formData = new FormData();
     formData.append('file', file);
+    formData.append('project_id', requireProjectId(projectId));
+    if (fileType) formData.append('file_type', fileType);
 
     return apiRequest<{ extraction_id: string; file_url: string; status: string }>(
       '/upload',
@@ -318,6 +503,21 @@ export const apiClient = {
         body: formData,
       }
     );
+  },
+
+  async updateReport(reportId: string, updates: { display_name?: string; file_type?: string }): Promise<ReportItem> {
+    const response = await apiRequest<{ report: any }>(`/reports/${encodeURIComponent(reportId)}`, {
+      method: 'PATCH',
+      body: JSON.stringify(updates),
+    });
+    return mapReport(response.report);
+  },
+
+  async archiveReport(reportId: string): Promise<ReportItem> {
+    const response = await apiRequest<{ report: any }>(`/reports/${encodeURIComponent(reportId)}/archive`, {
+      method: 'POST',
+    });
+    return mapReport(response.report);
   },
 
   async triggerExtraction(
@@ -336,36 +536,41 @@ export const apiClient = {
   // ---------------------------------------------------------------------------
   // Matches & Unmatched
   // ---------------------------------------------------------------------------
-  async getMatches(params?: {
-    project_id?: string;
+  async getMatches(params: {
+    project_id: string;
     status?: string;
     discipline?: string;
     limit?: number;
     offset?: number;
   }): Promise<ScheduleMatch[]> {
-    const query = new URLSearchParams();
-    if (params?.project_id) query.append('project_id', params.project_id);
-    if (params?.status && params.status !== 'all') query.append('status', params.status);
-    if (params?.discipline && params.discipline !== 'all') query.append('discipline', params.discipline);
-    if (params?.limit) query.append('limit', String(params.limit));
-    if (params?.offset) query.append('offset', String(params.offset));
+    const query = new URLSearchParams({ project_id: requireProjectId(params.project_id) });
+    if (params.status && params.status !== 'all') query.append('status', params.status);
+    if (params.discipline && params.discipline !== 'all') query.append('discipline', params.discipline);
+    if (params.limit) query.append('limit', String(params.limit));
+    if (params.offset) query.append('offset', String(params.offset));
 
-    const qs = query.toString();
-    return apiRequest<ScheduleMatch[]>(`/matches${qs ? `?${qs}` : ''}`);
+    return apiRequest<ScheduleMatch[]>(`/matches?${query.toString()}`);
   },
 
-  async getUnmatched(params?: {
+  async getUnmatched(params: {
+    project_id: string;
     resolution?: string;
     limit?: number;
     offset?: number;
   }): Promise<UnmatchedActivity[]> {
-    const query = new URLSearchParams();
-    if (params?.resolution && params.resolution !== 'all') query.append('resolution', params.resolution);
-    if (params?.limit) query.append('limit', String(params.limit));
-    if (params?.offset) query.append('offset', String(params.offset));
+    const query = new URLSearchParams({ project_id: requireProjectId(params.project_id) });
+    if (params.resolution && params.resolution !== 'all') query.append('resolution', params.resolution);
+    if (params.limit) query.append('limit', String(params.limit));
+    if (params.offset) query.append('offset', String(params.offset));
 
-    const qs = query.toString();
-    return apiRequest<UnmatchedActivity[]>(`/unmatched${qs ? `?${qs}` : ''}`);
+    return apiRequest<UnmatchedActivity[]>(`/unmatched?${query.toString()}`);
+  },
+
+  async resolveUnmatched(unmatchedId: string, planActivityId: string, reason?: string): Promise<void> {
+    await apiRequest(`/unmatched/${encodeURIComponent(unmatchedId)}/resolve`, {
+      method: 'POST',
+      body: JSON.stringify({ plan_activity_id: planActivityId, reason }),
+    });
   },
 
   async triggerMatch(extractedActivityId: string): Promise<MatchResult> {
@@ -422,30 +627,63 @@ export const apiClient = {
   // ---------------------------------------------------------------------------
   // Audit Trail
   // ---------------------------------------------------------------------------
-  async getAudit(params?: {
+  async getAudit(params: {
+    project_id: string;
     action?: string;
     actor?: string;
     limit?: number;
     offset?: number;
   }): Promise<AuditTrailEntry[]> {
-    const query = new URLSearchParams();
-    if (params?.action && params.action !== 'all') query.append('action', params.action);
-    if (params?.actor) query.append('actor', params.actor);
-    if (params?.limit) query.append('limit', String(params.limit));
-    if (params?.offset) query.append('offset', String(params.offset));
+    const query = new URLSearchParams({ project_id: requireProjectId(params.project_id) });
+    if (params.action && params.action !== 'all') query.append('action', params.action);
+    if (params.actor) query.append('actor', params.actor);
+    if (params.limit) query.append('limit', String(params.limit));
+    if (params.offset) query.append('offset', String(params.offset));
 
-    const qs = query.toString();
-    return apiRequest<AuditTrailEntry[]>(`/audit${qs ? `?${qs}` : ''}`);
+    return apiRequest<AuditTrailEntry[]>(`/audit?${query.toString()}`);
+  },
+
+  async getNotifications(projectId: string): Promise<ProjectNotification[]> {
+    const query = new URLSearchParams({ project_id: requireProjectId(projectId) });
+    const rows = await apiRequest<any[]>(`/notifications?${query.toString()}`);
+    return rows.map((row) => ({
+      id: row.id,
+      project_id: row.project_id,
+      type: row.type,
+      title: row.title,
+      message: row.message,
+      timestamp: row.created_at,
+      created_at: row.created_at,
+      read_at: row.read_at,
+      read: Boolean(row.read_at),
+      link: row.link || undefined,
+    }));
+  },
+
+  async markNotificationRead(notificationId: string): Promise<void> {
+    await apiRequest(`/notifications/${encodeURIComponent(notificationId)}/read`, { method: 'POST' });
+  },
+
+  async markAllNotificationsRead(projectId: string): Promise<void> {
+    const query = new URLSearchParams({ project_id: requireProjectId(projectId) });
+    await apiRequest(`/notifications/read-all?${query.toString()}`, { method: 'POST' });
   },
 
   // ---------------------------------------------------------------------------
   // Analytics
   // ---------------------------------------------------------------------------
-  async getAnalytics(params?: { project_id?: string }): Promise<AnalyticsOut> {
-    const query = new URLSearchParams();
-    if (params?.project_id) query.append('project_id', params.project_id);
+  async getAnalytics(projectId: string): Promise<AnalyticsOut> {
+    const query = new URLSearchParams({ project_id: requireProjectId(projectId) });
+    return apiRequest<AnalyticsOut>(`/analytics?${query.toString()}`);
+  },
 
-    const qs = query.toString();
-    return apiRequest<AnalyticsOut>(`/analytics${qs ? `?${qs}` : ''}`);
+  async importSchedule(projectId: string, file: File): Promise<{ imported: number; updated: number; skipped: number; errors: { row: number; error: string }[] }> {
+    const query = new URLSearchParams({ project_id: requireProjectId(projectId) });
+    const formData = new FormData();
+    formData.append('file', file);
+    return apiRequest(`/schedule/import?${query.toString()}`, {
+      method: 'POST',
+      body: formData,
+    });
   },
 };

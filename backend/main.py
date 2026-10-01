@@ -19,6 +19,10 @@ from backend.routes.schedule import router as schedule_router
 from backend.routes.reports import router as reports_router
 from backend.routes.audit import router as audit_router
 from backend.routes.analytics import router as analytics_router
+from backend.routes.projects import router as projects_router
+from backend.routes.team import router as team_router
+from backend.routes.notifications import router as notifications_router
+from backend.routes.unmatched import router as unmatched_router
 
 from backend.config import get_cors_origins, get_cors_regex, validate_environment, get_environment
 
@@ -44,7 +48,7 @@ async def lifespan(app: FastAPI):
         logger.info(f"[Config Validation] {msg}")
     
     if not is_valid and env == "production":
-        logger.error("FATAL: Environment validation failed in production mode.")
+        raise RuntimeError("Environment validation failed in production mode.")
     
     yield
     logger.info("OnGround Backend API shutdown.")
@@ -92,6 +96,10 @@ app.include_router(schedule_router)
 app.include_router(reports_router)
 app.include_router(audit_router)
 app.include_router(analytics_router)
+app.include_router(projects_router)
+app.include_router(team_router)
+app.include_router(notifications_router)
+app.include_router(unmatched_router)
 
 
 

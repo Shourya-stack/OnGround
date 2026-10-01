@@ -4,6 +4,9 @@ import { AuthProvider } from './hooks/AuthProvider';
 import { ProjectProvider } from './context/ProjectContext';
 import { ThemeProvider } from './context/ThemeContext';
 
+// Auth guards
+import { RequireAuth, RequirePlanner } from './components/auth/RequireAuth';
+
 // Layouts
 import { PublicLayout } from './components/layout/PublicLayout';
 import { AppLayout } from './components/layout/AppLayout';
@@ -83,14 +86,16 @@ export const App: React.FC = () => {
               <Route path="/verify-email" element={<VerifyEmailPage />} />
 
               {/* PORTFOLIO APPLICATION ROUTES */}
-              <Route element={<AppLayout />}>
+              <Route element={<RequireAuth>
+                <AppLayout />
+              </RequireAuth>}>
                 <Route path="/dashboard" element={<PortfolioDashboardPage />} />
                 <Route path="/projects" element={<ProjectsPage />} />
-                <Route path="/projects/new" element={<CreateProjectPage />} />
+                <Route path="/projects/new" element={<RequirePlanner><CreateProjectPage /></RequirePlanner>} />
               </Route>
 
               {/* PROJECT WORKSPACE ROUTES */}
-              <Route path="/projects/:id" element={<ProjectWorkspaceLayout />}>
+              <Route path="/projects/:id" element={<RequireAuth><ProjectWorkspaceLayout /></RequireAuth>}>
                 <Route index element={<Navigate to="overview" replace />} />
                 <Route path="overview" element={<ProjectOverviewPage />} />
                 <Route path="schedule" element={<ProjectSchedulePage />} />
@@ -106,16 +111,16 @@ export const App: React.FC = () => {
                 <Route path="analytics" element={<ProjectAnalyticsPage />} />
                 <Route path="audit" element={<ProjectAuditPage />} />
                 <Route path="team" element={<ProjectTeamPage />} />
-                <Route path="settings" element={<ProjectSettingsPage />} />
+                <Route path="settings" element={<RequirePlanner><ProjectSettingsPage /></RequirePlanner>} />
               </Route>
 
               {/* BACKWARD COMPATIBILITY / ALIAS REDIRECTS */}
-              <Route path="/upload" element={<Navigate to="/projects/proj-01/reports/upload" replace />} />
-              <Route path="/reconciliation" element={<Navigate to="/projects/proj-01/reconciliation" replace />} />
-              <Route path="/review/:matchId" element={<Navigate to="/projects/proj-01/review" replace />} />
-              <Route path="/unmatched" element={<Navigate to="/projects/proj-01/unmatched" replace />} />
-              <Route path="/schedule" element={<Navigate to="/projects/proj-01/schedule" replace />} />
-              <Route path="/audit" element={<Navigate to="/projects/proj-01/audit" replace />} />
+              <Route path="/upload" element={<Navigate to="/projects" replace />} />
+              <Route path="/reconciliation" element={<Navigate to="/projects" replace />} />
+              <Route path="/review/:matchId" element={<Navigate to="/projects" replace />} />
+              <Route path="/unmatched" element={<Navigate to="/projects" replace />} />
+              <Route path="/schedule" element={<Navigate to="/projects" replace />} />
+              <Route path="/audit" element={<Navigate to="/projects" replace />} />
 
               {/* CATCH ALL */}
               <Route path="*" element={<Navigate to="/" replace />} />

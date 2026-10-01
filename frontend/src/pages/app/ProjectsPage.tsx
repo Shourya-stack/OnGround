@@ -7,7 +7,7 @@ import {
   Users,
   ChevronRight,
 } from 'lucide-react';
-import { apiService } from '../../api/apiService';
+import { apiClient } from '../../lib/apiClient';
 import { useProject } from '../../context/ProjectContext';
 import { Project, ProjectStatus } from '../../lib/types';
 import { ProgressBar } from '../../components/ui/ProgressBar';
@@ -25,7 +25,7 @@ export const ProjectsPage: React.FC = () => {
   useEffect(() => {
     const fetchProjects = async () => {
       try {
-        const data = await apiService.getProjects();
+        const data = await apiClient.getProjects();
         setProjects(data);
       } catch (err) {
         console.error('Failed to load projects', err);

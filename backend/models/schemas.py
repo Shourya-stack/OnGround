@@ -20,7 +20,7 @@ class HealthResponse(BaseModel):
 class CurrentUser(BaseModel):
     id: UUID
     email: Optional[str] = None
-    role: str = "supervisor"  # "planner" or "supervisor"
+    role: str = "supervisor"  # planner | supervisor | manager | engineer
 
 
 class ErrorResponse(BaseModel):
@@ -29,13 +29,35 @@ class ErrorResponse(BaseModel):
     detail: Optional[str] = None
 
 
+class AuditedResponse(BaseModel):
+    """
+    Base for responses whose operation also writes an audit row.
+
+    `audit_warning` is populated when the business operation succeeded but the
+    audit entry could not be written, so a gap in the trail is visible to the
+    client instead of being silently swallowed.
+    """
+    audit_warning: Optional[str] = None
+
+
+class PageMeta(BaseModel):
+    """Pagination envelope metadata. `total` is a server-side exact count."""
+    total: int = 0
+    limit: int = 50
+    offset: int = 0
+    has_more: bool = False
+
+
 # =============================================================================
 # Upload Schemas
 # =============================================================================
 
-class UploadResponse(BaseModel):
+class UploadResponse(AuditedResponse):
     extraction_id: UUID
+    project_id: UUID
     file_url: str
+    file_name: Optional[str] = None
+    file_size_bytes: Optional[int] = None
     status: str = "pending"
 
 
@@ -75,7 +97,7 @@ class ExtractedActivityCreate(BaseModel):
     extraction_confidence: float = Field(..., ge=0.0, le=1.0)
 
 
-class ExtractionResponse(BaseModel):
+class ExtractionResponse(AuditedResponse):
     extraction_id: UUID
     activities_count: int
     activities: List[Dict[str, Any]]
@@ -106,7 +128,7 @@ class MatchResult(BaseModel):
 # Review Schemas (Confirm / Reject)
 # =============================================================================
 
-class ConfirmResponse(BaseModel):
+class ConfirmResponse(AuditedResponse):
     match_id: UUID
     status: str = "confirmed"
 
@@ -115,9 +137,10 @@ class RejectRequest(BaseModel):
     reason: Optional[str] = None
 
 
-class RejectResponse(BaseModel):
+class RejectResponse(AuditedResponse):
     match_id: UUID
     status: str = "rejected"
+    unmatched_id: Optional[UUID] = None
 
 
 class ReassignRequest(BaseModel):
@@ -125,7 +148,7 @@ class ReassignRequest(BaseModel):
     reason: Optional[str] = None
 
 
-class ReassignResponse(BaseModel):
+class ReassignResponse(AuditedResponse):
     match_id: UUID
     plan_activity_id: UUID
     status: str = "confirmed"
@@ -152,10 +175,39 @@ class ReportItemOut(BaseModel):
     id: UUID
     project_id: UUID
     file_url: str
+    file_name: Optional[str] = None
+    display_name: Optional[str] = None
+    file_size_bytes: Optional[int] = None
+    file_extension: Optional[str] = None
     file_type: Optional[str] = None
     status: str
+    error_message: Optional[str] = None
     uploaded_by: Optional[UUID] = None
+    archived_at: Optional[datetime] = None
     created_at: Optional[datetime] = None
+    # Derived per-report counts (aggregated server-side, not stored)
+    activities_count: int = 0
+    matched_count: int = 0
+    review_count: int = 0
+    unmatched_count: int = 0
+
+
+class ReportUpdateRequest(BaseModel):
+    display_name: Optional[str] = Field(None, min_length=1, max_length=200)
+    file_type: Optional[str] = None
+
+    @field_validator("file_type")
+    def validate_file_type(cls, v):
+        if v is None:
+            return v
+        allowed = {"daily_report", "spreadsheet", "voice_transcript"}
+        if v not in allowed:
+            raise ValueError(f"file_type must be one of {sorted(allowed)}")
+        return v
+
+
+class ReportMutationResponse(AuditedResponse):
+    report: ReportItemOut
 
 
 class ExtractedActivityContext(BaseModel):
@@ -195,18 +247,53 @@ class UnmatchedActivityOut(BaseModel):
     id: UUID
     extracted_activity_id: UUID
     best_score: Optional[float] = None
+    reason: Optional[str] = None
     resolution: str = "unresolved"
+    linked_plan_activity_id: Optional[UUID] = None
+    resolved_by: Optional[UUID] = None
+    resolved_at: Optional[datetime] = None
     created_at: Optional[datetime] = None
     extracted_activity: Optional[ExtractedActivityContext] = None
 
 
+class ResolveUnmatchedRequest(BaseModel):
+    """
+    Resolve an unmatched activity, either by linking it to a planned activity or
+    by accepting it as genuinely new scope.
+    """
+    resolution: str = Field(..., description="manually_linked | marked_new_activity")
+    target_plan_activity_id: Optional[UUID] = None
+    reason: Optional[str] = None
+
+    @field_validator("resolution")
+    def validate_resolution(cls, v):
+        allowed = {"manually_linked", "marked_new_activity"}
+        if v not in allowed:
+            raise ValueError(f"resolution must be one of {sorted(allowed)}")
+        return v
+
+
+class ResolveUnmatchedResponse(AuditedResponse):
+    unmatched_id: UUID
+    resolution: str
+    match_id: Optional[UUID] = None
+    plan_activity_id: Optional[UUID] = None
+
+
 class AuditTrailOut(BaseModel):
     id: UUID
+    project_id: Optional[UUID] = None
     related_match_id: Optional[UUID] = None
     related_unmatched_id: Optional[UUID] = None
+    entity_type: Optional[str] = None
+    entity_id: Optional[UUID] = None
     action: str
+    previous_state: Optional[Dict[str, Any]] = None
+    new_state: Optional[Dict[str, Any]] = None
+    reason: Optional[str] = None
     confidence_score: Optional[float] = None
     actor: Optional[UUID] = None
+    actor_role: Optional[str] = None
     created_at: datetime
 
 
@@ -233,4 +320,210 @@ class AnalyticsOut(BaseModel):
     unmatched_by_resolution: UnmatchedBreakdown = Field(default_factory=UnmatchedBreakdown)
     total_audit_events: int = 0
     average_match_confidence: Optional[float] = None
+
+
+# =============================================================================
+# Project Schemas
+# =============================================================================
+
+PROJECT_STATUSES = {"active", "completed", "archived"}
+VALID_ROLES = {"planner", "supervisor", "manager", "engineer"}
+
+
+class ProjectStatsOut(BaseModel):
+    """Derived counters from the public.project_stats view (never stored)."""
+    reports_count: int = 0
+    activities_count: int = 0
+    matched_count: int = 0
+    review_count: int = 0
+    rejected_count: int = 0
+    unmatched_count: int = 0
+    team_size: int = 0
+    plan_count: int = 0
+    progress: int = 0
+
+
+class ProjectCreate(BaseModel):
+    name: str = Field(..., min_length=2, max_length=200)
+    code: str = Field(..., min_length=1, max_length=50)
+    client: Optional[str] = Field(None, max_length=200)
+    location: Optional[str] = Field(None, max_length=200)
+    contract_type: Optional[str] = Field(None, max_length=100)
+    budget: Optional[float] = Field(None, ge=0)
+    currency: str = Field("INR", min_length=3, max_length=3)
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
+
+    @field_validator("code")
+    def normalize_code(cls, v):
+        return v.strip().upper()
+
+    @field_validator("end_date")
+    def validate_dates(cls, v, info):
+        start = info.data.get("start_date")
+        if v and start and v < start:
+            raise ValueError("end_date cannot be earlier than start_date")
+        return v
+
+
+class ProjectUpdate(BaseModel):
+    name: Optional[str] = Field(None, min_length=2, max_length=200)
+    client: Optional[str] = Field(None, max_length=200)
+    location: Optional[str] = Field(None, max_length=200)
+    contract_type: Optional[str] = Field(None, max_length=100)
+    budget: Optional[float] = Field(None, ge=0)
+    currency: Optional[str] = Field(None, min_length=3, max_length=3)
+    status: Optional[str] = None
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
+
+    @field_validator("status")
+    def validate_status(cls, v):
+        if v is not None and v not in PROJECT_STATUSES:
+            raise ValueError(f"status must be one of {sorted(PROJECT_STATUSES)}")
+        return v
+
+
+class ProjectOut(BaseModel):
+    id: UUID
+    name: str
+    code: str
+    client: Optional[str] = None
+    location: Optional[str] = None
+    contract_type: Optional[str] = None
+    budget: Optional[float] = None
+    currency: str = "INR"
+    status: str = "active"
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
+    created_by: Optional[UUID] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+    archived_at: Optional[datetime] = None
+    # Role of the requesting user within this project
+    my_role: Optional[str] = None
+    stats: ProjectStatsOut = Field(default_factory=ProjectStatsOut)
+
+
+class ProjectMutationResponse(AuditedResponse):
+    project: ProjectOut
+
+
+# =============================================================================
+# Team Schemas
+# =============================================================================
+
+class TeamMemberOut(BaseModel):
+    id: UUID                       # membership id, or invite id for pending members
+    user_id: Optional[UUID] = None  # None while the invite is unaccepted
+    project_id: UUID
+    email: Optional[str] = None
+    full_name: Optional[str] = None
+    role: str = "supervisor"
+    status: str = "active"          # active | invited
+    created_at: Optional[datetime] = None
+
+
+class InviteMemberRequest(BaseModel):
+    email: str = Field(..., min_length=3, max_length=320)
+    full_name: Optional[str] = Field(None, max_length=200)
+    role: str = "supervisor"
+
+    @field_validator("email")
+    def normalize_email(cls, v):
+        v = v.strip().lower()
+        if "@" not in v or v.startswith("@") or v.endswith("@"):
+            raise ValueError("A valid email address is required")
+        return v
+
+    @field_validator("role")
+    def validate_role(cls, v):
+        if v not in VALID_ROLES:
+            raise ValueError(f"role must be one of {sorted(VALID_ROLES)}")
+        return v
+
+
+class InviteMemberResponse(AuditedResponse):
+    member: TeamMemberOut
+    already_registered: bool = False
+
+
+# =============================================================================
+# Notification Schemas
+# =============================================================================
+
+class NotificationOut(BaseModel):
+    id: UUID
+    project_id: UUID
+    user_id: Optional[UUID] = None
+    type: str
+    title: str
+    message: str
+    link: Optional[str] = None
+    read_at: Optional[datetime] = None
+    created_at: datetime
+
+
+class MarkAllReadResponse(BaseModel):
+    marked: int = 0
+
+
+# =============================================================================
+# Field Update Schemas (derived from extracted_activities + schedule_matches)
+# =============================================================================
+
+class FieldUpdateOut(BaseModel):
+    """
+    A single reported site activity with its reconciliation state.
+
+    Derived on read — there is no field_updates table, because every field is
+    already present in extracted_activities / schedule_matches. Storing a copy
+    would just create a second source of truth.
+    """
+    id: UUID
+    extraction_id: UUID
+    date: Optional[date] = None
+    time: Optional[str] = None
+    text: str
+    discipline: Optional[str] = None
+    location: Optional[str] = None
+    confidence: float = 0.0
+    state: str = "AWAITING_REVIEW"  # LINKED | AWAITING_REVIEW | REVIEW_REQUIRED | REJECTED | UNPLANNED
+    linked_activity_id: Optional[UUID] = None
+    linked_activity_code: Optional[str] = None
+    match_id: Optional[UUID] = None
+    match_confidence: Optional[float] = None
+    created_at: Optional[datetime] = None
+
+
+# =============================================================================
+# Schedule Import Schemas
+# =============================================================================
+
+class ScheduleImportRowError(BaseModel):
+    row: int
+    error: str
+
+
+class ScheduleImportResponse(AuditedResponse):
+    imported: int = 0
+    updated: int = 0
+    skipped: int = 0
+    errors: List[ScheduleImportRowError] = Field(default_factory=list)
+
+
+# =============================================================================
+# Unmatched Resolution Schemas
+# =============================================================================
+
+class UnmatchedResolutionRequest(BaseModel):
+    plan_activity_id: UUID
+    reason: Optional[str] = None
+
+
+class UnmatchedResolutionResponse(AuditedResponse):
+    unmatched_id: UUID
+    plan_activity_id: UUID
+    resolved_by: UUID
+    resolved_at: Optional[datetime] = None
 

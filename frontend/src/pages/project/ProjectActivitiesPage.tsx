@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Search, MapPin, FileText, History } from 'lucide-react';
 
-import { apiService } from '../../api/apiService';
+import { apiClient } from '../../lib/apiClient';
 import { ExtractedActivity, ScheduleMatch, ReportItem } from '../../lib/types';
 import { LoadingSkeleton } from '../../components/common/LoadingSkeleton';
 import { EmptyState } from '../../components/common/EmptyState';
@@ -11,7 +11,7 @@ import { Drawer } from '../../components/ui/Drawer';
 
 export const ProjectActivitiesPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const projectId = id || 'proj-01';
+  const projectId = id || '';
   const navigate = useNavigate();
 
   const [loading, setLoading] = useState(true);
@@ -29,9 +29,9 @@ export const ProjectActivitiesPage: React.FC = () => {
     setError(null);
     try {
       const [actData, matchData, repData] = await Promise.all([
-        apiService.getActivities(projectId),
-        apiService.getMatches(projectId),
-        apiService.getReports(projectId),
+        apiClient.getActivities(projectId),
+        apiClient.getMatches({ project_id: projectId }),
+        apiClient.getReports({ project_id: projectId }),
       ]);
       setActivities(actData);
       setMatches(matchData);
@@ -159,7 +159,7 @@ export const ProjectActivitiesPage: React.FC = () => {
                         {act.activity_description}
                       </div>
                       <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                        ID: {act.id} • Date: {act.start_time?.split('T')[0] || '2026-09-12'}
+                        ID: {act.id} • Date: {act.start_time?.split('T')[0] || '—'}
                       </div>
                     </td>
                     <td>
@@ -263,11 +263,11 @@ export const ProjectActivitiesPage: React.FC = () => {
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
                 <FileText size={18} style={{ color: 'var(--accent-indigo)' }} />
                 <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>
-                  {sourceReport?.file_name || 'DPR_Piping_Package3_2026-09-12.pdf'}
+                  {sourceReport?.file_name || 'Source report unavailable'}
                 </span>
               </div>
               <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                Uploaded by: {sourceReport?.uploaded_by || 'Rajesh Sharma (Site Eng)'}
+                Uploaded by: {sourceReport?.uploaded_by || 'Unknown'}
               </div>
             </div>
 

@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useProject } from '../../context/ProjectContext';
-import { apiService } from '../../api/apiService';
+import { apiClient } from '../../lib/apiClient';
 import { Project, ReportItem, ScheduleMatch, AuditTrailEntry } from '../../lib/types';
 import { ProgressBar } from '../../components/ui/ProgressBar';
 import { LoadingSkeleton } from '../../components/common/LoadingSkeleton';
@@ -36,7 +36,7 @@ export const PortfolioDashboardPage: React.FC = () => {
   const { profile } = useAuth();
   const { activeProject, setActiveProjectId } = useProject();
   const navigate = useNavigate();
-  const targetProjectId = activeProject?.id || 'proj-01';
+  const targetProjectId = activeProject?.id || '';
 
   const greeting = useGreeting(profile?.full_name || 'Planner');
 
@@ -49,16 +49,19 @@ export const PortfolioDashboardPage: React.FC = () => {
   useEffect(() => {
     const loadDashboardData = async () => {
       try {
-        const [projData, repData, matchData, auditData] = await Promise.all([
-          apiService.getProjects(),
-          apiService.getReports(),
-          apiService.getMatches(),
-          apiService.getAuditTrail(),
-        ]);
-        setProjects(projData);
-        setReports(repData);
-        setMatches(matchData);
-        setAuditLogs(auditData);
+        const projectRows = await apiClient.getProjects();
+        const records = await Promise.all(projectRows.map(async (project) => {
+          const [projectReports, projectMatches, projectAudit] = await Promise.all([
+            apiClient.getReports({ project_id: project.id }),
+            apiClient.getMatches({ project_id: project.id }),
+            apiClient.getAudit({ project_id: project.id }),
+          ]);
+          return { projectReports, projectMatches, projectAudit };
+        }));
+        setProjects(projectRows);
+        setReports(records.flatMap((record) => record.projectReports));
+        setMatches(records.flatMap((record) => record.projectMatches));
+        setAuditLogs(records.flatMap((record) => record.projectAudit));
       } catch (err) {
         console.error('Failed to load portfolio dashboard data', err);
       } finally {
@@ -79,7 +82,7 @@ export const PortfolioDashboardPage: React.FC = () => {
   const pendingReviewCount = matches.filter((m) => m.status === 'pending_review').length;
   const pendingReviewsList = matches.filter((m) => m.status === 'pending_review');
 
-  const overallHealth = totalMatches > 0 ? Math.round((autoLinkedCount / totalMatches) * 100) : 92;
+  const overallHealth = totalMatches > 0 ? Math.round((autoLinkedCount / totalMatches) * 100) : 0;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
@@ -123,7 +126,7 @@ export const PortfolioDashboardPage: React.FC = () => {
           <Link to="/projects/new" className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '6px', textDecoration: 'none' }}>
             <FolderPlus size={15} /> New Project
           </Link>
-          <Link to={`/projects/${targetProjectId}/reports/upload`} className="btn btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '6px', textDecoration: 'none' }}>
+          <Link to={targetProjectId ? `/projects/${targetProjectId}/reports/upload` : '/projects/new'} className="btn btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '6px', textDecoration: 'none' }}>
             <UploadCloud size={15} /> Upload Daily Log
           </Link>
           <Link to={`/projects/${targetProjectId}/schedule`} className="btn btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '6px', textDecoration: 'none' }}>

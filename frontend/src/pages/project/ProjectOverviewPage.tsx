@@ -23,7 +23,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
-import { apiService } from '../../api/apiService';
+import { apiClient } from '../../lib/apiClient';
 import {
   Project,
   ReportItem,
@@ -40,7 +40,7 @@ import { FieldUpdateFeed } from '../../components/feed/FieldUpdateFeed';
 
 export const ProjectOverviewPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const projectId = id || 'proj-01';
+  const projectId = id || '';
 
   const [loading, setLoading] = useState(true);
   const [project, setProject] = useState<Project | null>(null);
@@ -55,12 +55,12 @@ export const ProjectOverviewPage: React.FC = () => {
       setLoading(true);
       try {
         const [p, r, m, s, f, u] = await Promise.all([
-          apiService.getProjectById(projectId),
-          apiService.getReports(projectId),
-          apiService.getMatches(projectId),
-          apiService.getSchedule(projectId),
-          apiService.getFieldUpdates(),
-          apiService.getUnmatched(projectId),
+          apiClient.getProjectById(projectId),
+          apiClient.getReports({ project_id: projectId }),
+          apiClient.getMatches({ project_id: projectId }),
+          apiClient.getSchedule({ project_id: projectId }),
+          apiClient.getFieldUpdates(projectId),
+          apiClient.getUnmatched({ project_id: projectId }),
         ]);
         setProject(p || null);
         setReports(r);
@@ -86,57 +86,53 @@ export const ProjectOverviewPage: React.FC = () => {
     );
   }
 
+  if (!project) {
+    return (
+      <div className="bionis-card" style={{ padding: '2rem', textAlign: 'center' }}>
+        <h1>Project unavailable</h1>
+        <p>This project could not be loaded for your account.</p>
+        <Link to="/projects">Return to projects</Link>
+      </div>
+    );
+  }
+
   const matchedCount = matches.filter(
     (m) => m.status === 'auto_linked' || m.status === 'confirmed'
   ).length;
   const reviewCount = matches.filter((m) => m.status === 'pending_review').length;
   const pendingReviews = matches.filter((m) => m.status === 'pending_review');
 
-  // Compute Planned vs Actual statistics
   const plannedAvg = schedule.length
-    ? Number(
-        (
-          schedule.reduce((acc, curr) => acc + (curr.planned_progress ?? 0), 0) /
-          schedule.length
-        ).toFixed(1)
-      )
-    : 68.2;
+    ? Number((schedule.reduce((total, item) => total + (item.planned_progress ?? 0), 0) / schedule.length).toFixed(1))
+    : 0;
   const actualAvg = schedule.length
-    ? Number(
-        (
-          schedule.reduce((acc, curr) => acc + (curr.actual_progress ?? 0), 0) /
-          schedule.length
-        ).toFixed(1)
-      )
-    : 64.8;
+    ? Number((schedule.reduce((total, item) => total + (item.actual_progress ?? 0), 0) / schedule.length).toFixed(1))
+    : 0;
   const scheduleVariance = Number((actualAvg - plannedAvg).toFixed(1));
 
-  // Health Score Calculation (out of 100)
-  const healthScore = Math.min(
-    Math.max(Math.round(100 - Math.abs(scheduleVariance) * 2.5 - reviewCount * 2), 60),
-    98
-  );
+  const healthScore = schedule.length
+    ? Math.max(0, Math.min(100, Math.round(100 - Math.abs(scheduleVariance) * 2.5 - reviewCount * 2)))
+    : 0;
 
-  // Discipline Planned vs Actual breakdown
-  const disciplineStats = [
-    { name: 'Civil & Foundation', planned: 82, actual: 76, color: 'var(--disc-civil)' },
-    { name: 'Piping Works', planned: 65, actual: 64, color: 'var(--disc-piping)' },
-    { name: 'Electrical & Power', planned: 55, actual: 45, color: 'var(--disc-electrical)' },
-    { name: 'Instrumentation & Control', planned: 40, actual: 38, color: 'var(--accent-blue)' },
-    { name: 'Equipment Placement', planned: 60, actual: 52, color: 'var(--disc-equip)' },
-    { name: 'HSE & Safety Compliance', planned: 100, actual: 100, color: 'var(--confidence-high)' },
-  ];
+  const disciplineStats = Array.from(new Set(schedule.map((item) => item.discipline))).map((discipline) => {
+    const items = schedule.filter((item) => item.discipline === discipline);
+    return {
+      name: discipline.replace(/_/g, ' '),
+      planned: items.reduce((total, item) => total + (item.planned_progress ?? 0), 0) / items.length,
+      actual: items.reduce((total, item) => total + (item.actual_progress ?? 0), 0) / items.length,
+      color: 'var(--accent-blue)',
+    };
+  });
 
-  // 14-day trend mockup data aligned with real schedule/reconciliation
-  const trendData = [
-    { day: 'Day 1', planned: 52, actual: 51, autoLinked: 7 },
-    { day: 'Day 3', planned: 55, actual: 54, autoLinked: 8 },
-    { day: 'Day 5', planned: 58, actual: 56, autoLinked: 8 },
-    { day: 'Day 7', planned: 61, actual: 59, autoLinked: 9 },
-    { day: 'Day 9', planned: 63, actual: 61, autoLinked: 9 },
-    { day: 'Day 11', planned: 66, actual: 63, autoLinked: 9 },
-    { day: 'Day 14', planned: plannedAvg, actual: actualAvg, autoLinked: matchedCount || 9 },
-  ];
+  const trendData = Array.from(new Set(schedule.map((item) => item.planned_start))).sort().map((day) => {
+    const items = schedule.filter((item) => item.planned_start === day);
+    return {
+      day,
+      planned: items.reduce((total, item) => total + (item.planned_progress ?? 0), 0) / items.length,
+      actual: items.reduce((total, item) => total + (item.actual_progress ?? 0), 0) / items.length,
+    };
+  });
+
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
@@ -163,17 +159,17 @@ export const ProjectOverviewPage: React.FC = () => {
                 fontFamily: 'var(--font-mono)',
               }}
             >
-              {project?.code || 'EPC-247'}
+              {project.code}
             </span>
             <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
-              • {project?.client || 'Infrastructure Authority'}
+              • {project.client}
             </span>
           </div>
           <h1 style={{ fontSize: '1.75rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0, letterSpacing: '-0.02em' }}>
-            {project?.name || 'Line 247 EPC Package'}
+            {project.name}
           </h1>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', margin: '4px 0 0 0' }}>
-            Location: {project?.location || 'Gujarat'} • Budget: {project?.budget || '₹140 Cr'} • Contract: {project?.contract_type || 'EPC Lumpsum'}
+            Location: {project.location} • Budget: {project.budget} • Contract: {project.contract_type}
           </p>
         </div>
 
@@ -258,7 +254,7 @@ export const ProjectOverviewPage: React.FC = () => {
             value={healthScore}
             max={100}
             label="Health"
-            sublabel={`${actualAvg}% Done`}
+            sublabel={`${Math.round(actualAvg)}% Done`}
             size={120}
             color={scheduleVariance >= 0 ? 'var(--confidence-high)' : 'var(--accent-blue)'}
           />
@@ -642,7 +638,7 @@ export const ProjectOverviewPage: React.FC = () => {
           </div>
 
           <div style={{ overflowY: 'auto', maxHeight: '280px' }}>
-            <FieldUpdateFeed updates={fieldUpdates} />
+            <FieldUpdateFeed updates={fieldUpdates} projectId={projectId} />
           </div>
         </article>
       </section>

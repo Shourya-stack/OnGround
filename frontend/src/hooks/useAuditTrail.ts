@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { apiClient } from '../lib/apiClient';
 import { AuditTrailEntry } from '../lib/types';
 
-export function useAuditTrail(action?: string) {
+export function useAuditTrail(projectId: string, action?: string) {
   const [data, setData] = useState<AuditTrailEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -12,6 +12,7 @@ export function useAuditTrail(action?: string) {
     setError(null);
     try {
       const records = await apiClient.getAudit({
+        project_id: projectId,
         action: action && action !== 'all' ? action : undefined,
       });
       setData(records || []);
@@ -21,7 +22,7 @@ export function useAuditTrail(action?: string) {
     } finally {
       setLoading(false);
     }
-  }, [action]);
+  }, [action, projectId]);
 
   useEffect(() => {
     fetchAudit();

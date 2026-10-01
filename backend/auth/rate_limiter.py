@@ -8,7 +8,9 @@ import os
 import time
 import threading
 from typing import Dict, List, Tuple, Optional
-from fastapi import Request, HTTPException, status
+from fastapi import Request, HTTPException, status, Depends
+from backend.auth.security import get_current_user
+from backend.models.schemas import CurrentUser
 
 logger = logging_import = None
 try:
@@ -68,6 +70,7 @@ class InMemoryRateLimiter:
     def __init__(self):
         self._lock = threading.Lock()
         self._records: Dict[str, List[float]] = {}
+        self._next_cleanup = 0.0
 
     def check(
         self,
@@ -104,6 +107,16 @@ class InMemoryRateLimiter:
         now = time.monotonic()
 
         with self._lock:
+            if now >= self._next_cleanup:
+                stale_cutoff = now - 86400
+                stale_keys = [
+                    key for key, timestamps in self._records.items()
+                    if not timestamps or timestamps[-1] <= stale_cutoff
+                ]
+                for key in stale_keys:
+                    del self._records[key]
+                self._next_cleanup = now + 300
+
             history = self._records.get(storage_key, [])
             cutoff = now - window_seconds
             # Remove timestamps outside the sliding window
@@ -132,13 +145,29 @@ limiter = InMemoryRateLimiter()
 
 
 # Dependency factories for FastAPI routes
-async def rate_limit_upload(request: Request) -> None:
-    limiter.check(request, "upload", "RATE_LIMIT_UPLOAD", "10/minute")
+async def rate_limit_api(
+    request: Request,
+    current_user: CurrentUser = Depends(get_current_user),
+) -> None:
+    limiter.check(request, "api", "RATE_LIMIT_API", "120/minute", str(current_user.id))
 
 
-async def rate_limit_extraction(request: Request) -> None:
-    limiter.check(request, "extraction", "RATE_LIMIT_EXTRACTION", "10/minute")
+async def rate_limit_upload(
+    request: Request,
+    current_user: CurrentUser = Depends(get_current_user),
+) -> None:
+    limiter.check(request, "upload", "RATE_LIMIT_UPLOAD", "10/minute", str(current_user.id))
 
 
-async def rate_limit_match(request: Request) -> None:
-    limiter.check(request, "match", "RATE_LIMIT_MATCH", "30/minute")
+async def rate_limit_extraction(
+    request: Request,
+    current_user: CurrentUser = Depends(get_current_user),
+) -> None:
+    limiter.check(request, "extraction", "RATE_LIMIT_EXTRACTION", "10/minute", str(current_user.id))
+
+
+async def rate_limit_match(
+    request: Request,
+    current_user: CurrentUser = Depends(get_current_user),
+) -> None:
+    limiter.check(request, "match", "RATE_LIMIT_MATCH", "30/minute", str(current_user.id))

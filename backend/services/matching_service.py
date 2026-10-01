@@ -11,8 +11,10 @@ from uuid import UUID, uuid4
 from datetime import datetime
 
 from backend.db.supabase_client import get_supabase_client
+from backend.db.errors import PersistenceError, execute_read, execute_write
 from backend.models.schemas import CandidateMatch, MatchResult
 from backend.services.audit_service import log_action
+from backend.services.notification_service import notify_pending_review, notify_unmatched
 
 logger = logging.getLogger("onground.matching")
 
@@ -56,14 +58,17 @@ class EmbeddingCache:
     @staticmethod
     def create_key(activity_id: Optional[str], text: str) -> str:
         """
-        Creates a deterministic content-aware cache key using SHA-256 hash.
-        Includes activity_id if provided and normalizes whitespace.
+        Build a deterministic cache key from the *text only*.
+
+        An embedding is a pure function of its input text, so including
+        activity_id in the key meant the same description encoded under two
+        different ids produced two entries and the cache effectively never hit
+        across records. `activity_id` is retained in the signature for call-site
+        compatibility but deliberately does not participate in the key.
         """
-        norm_text = " ".join(text.strip().lower().split())
+        norm_text = " ".join((text or "").strip().lower().split())
         text_hash = hashlib.sha256(norm_text.encode("utf-8")).hexdigest()
-        if activity_id:
-            return f"{activity_id}:{text_hash}"
-        return f"raw:{text_hash}"
+        return f"emb:{text_hash}"
 
     def get(self, key: str) -> Optional[List[float]]:
         with self._lock:
@@ -296,14 +301,20 @@ def calculate_match_score(
     """
     Hybrid scoring formula:
     score = (0.70 * embedding_sim) + (0.20 * extraction_confidence) + (0.10 * date_proximity_factor) - discipline_penalty
+
+    Disciplines may legitimately be NULL in the database, so both sides are
+    coerced to a string before comparison.
     """
+    extracted_norm = (extracted_discipline or "unknown").strip().lower()
+    plan_norm = (plan_discipline or "unknown").strip().lower()
+
     discipline_penalty = 0.0
     if (
-        extracted_discipline
-        and plan_discipline
-        and extracted_discipline.lower() != "unknown"
-        and plan_discipline.lower() != "unknown"
-        and extracted_discipline.lower() != plan_discipline.lower()
+        extracted_norm
+        and plan_norm
+        and extracted_norm != "unknown"
+        and plan_norm != "unknown"
+        and extracted_norm != plan_norm
     ):
         discipline_penalty = 0.15
 
@@ -317,6 +328,28 @@ class MatchingService:
     def __init__(self):
         self.model = get_embedding_model()
 
+    @staticmethod
+    def _load_reviewed_match(supabase, extracted_activity_id: UUID) -> Optional[Dict[str, Any]]:
+        """
+        Return a schedule_match row if it has already been reviewed (confirmed or
+        rejected). These statuses must not be overwritten by a subsequent matcher run.
+        """
+        if not supabase:
+            return None
+        try:
+            rows = execute_read(
+                supabase.table("schedule_matches")
+                .select("id, status, plan_activity_id, confidence_score")
+                .eq("extracted_activity_id", str(extracted_activity_id))
+                .in_("status", ["confirmed", "rejected"]),
+                table="schedule_matches",
+                operation="match.load_reviewed",
+            )
+        except PersistenceError as exc:
+            logger.warning("Could not load reviewed match status: %s", exc)
+            return None
+        return rows[0] if rows else None
+
     def match_activity(
         self,
         extracted_activity_id: UUID,
@@ -327,49 +360,66 @@ class MatchingService:
         end_time: Optional[datetime] = None,
         actor_id: Optional[UUID] = None,
         plan_activities: Optional[List[Dict[str, Any]]] = None,
+        project_id: Optional[UUID] = None,
     ) -> MatchResult:
         """
-        Matches a single extracted activity against the active baseline schedule.
+        Match a single extracted activity against the project's baseline schedule.
+
+        The candidate set comes only from real `schedule_plan` rows belonging to
+        `project_id`. An earlier revision fabricated four synthetic plan
+        activities with fresh uuid4() ids whenever the schedule was empty; those
+        ids existed nowhere in the database, so every resulting
+        `schedule_matches` insert violated the plan_activity_id foreign key and
+        was then silently swallowed.
         """
         supabase = get_supabase_client()
+
+        # A planner decision is final. `schedule_matches.extracted_activity_id` is
+        # UNIQUE, so the upsert below would otherwise quietly reset a confirmed or
+        # rejected row back to auto_linked/pending_review on every re-run.
+        reviewed = self._load_reviewed_match(supabase, extracted_activity_id)
+        if reviewed:
+            logger.info(
+                "Skipping re-match for activity %s: already %s by review.",
+                extracted_activity_id,
+                reviewed.get("status"),
+            )
+            plan_act_id = reviewed.get("plan_activity_id")
+            return MatchResult(
+                status=reviewed["status"],
+                extracted_activity_id=extracted_activity_id,
+                match_id=UUID(str(reviewed["id"])),
+                plan_activity_id=UUID(str(plan_act_id)) if plan_act_id else None,
+                confidence_score=reviewed.get("confidence_score"),
+            )
+
         if plan_activities is None:
             plan_activities = []
 
             if supabase:
+                query = supabase.table("schedule_plan").select("*")
+                if project_id:
+                    query = query.eq("project_id", str(project_id))
                 try:
-                    res = supabase.table("schedule_plan").select("*").execute()
-                    plan_activities = res.data or []
-                except Exception as e:
-                    logger.error(f"Failed to fetch baseline schedule from Supabase: {e}")
+                    plan_activities = execute_read(
+                        query,
+                        table="schedule_plan",
+                        operation="match.load_plan",
+                    )
+                except PersistenceError as exc:
+                    logger.error("Failed to fetch baseline schedule: %s", exc)
+                    raise
 
-        # If no DB records found, provide synthetic fallback activities for local dev/testing
+        # An empty baseline is a real, reportable condition — not a cue to invent data.
         if not plan_activities:
-            plan_activities = [
-                {
-                    "id": str(uuid4()),
-                    "activity_code": "PIP-101",
-                    "activity_description": "Piping fit-up and spool fabrication area 1",
-                    "discipline": "piping",
-                },
-                {
-                    "id": str(uuid4()),
-                    "activity_code": "ELE-201",
-                    "activity_description": "Cable tray installation and cable pulling substation 2",
-                    "discipline": "electrical",
-                },
-                {
-                    "id": str(uuid4()),
-                    "activity_code": "CIV-301",
-                    "activity_description": "Foundation excavation and rebar tying for pump house",
-                    "discipline": "civil",
-                },
-                {
-                    "id": str(uuid4()),
-                    "activity_code": "INS-401",
-                    "activity_description": "Transmitter calibration and impulse piping impulse tubing",
-                    "discipline": "instrumentation",
-                },
-            ]
+            return self._handle_unmatched(
+                extracted_activity_id,
+                activity_description,
+                reason="No planned activities exist for this project. Import a schedule first.",
+                best_score=0.0,
+                actor_id=actor_id,
+                project_id=project_id,
+            )
 
         # 1. Pre-encode extracted activity description ONCE before candidate loop
         extracted_emb = None
@@ -384,8 +434,23 @@ class MatchingService:
         candidates: List[Tuple[Dict[str, Any], float, float]] = []
 
         for plan in plan_activities:
-            plan_desc = plan["activity_description"]
-            plan_id = str(plan.get("id", ""))
+            plan_desc = plan.get("activity_description")
+            plan_id_raw = plan.get("id")
+
+            # Skip malformed rows rather than raising KeyError/ValueError mid-loop.
+            if not plan_desc or not plan_id_raw:
+                logger.warning(
+                    "Skipping malformed schedule_plan row (missing id or description): %s",
+                    {k: plan.get(k) for k in ("id", "activity_code")},
+                )
+                continue
+            try:
+                UUID(str(plan_id_raw))
+            except (ValueError, TypeError):
+                logger.warning("Skipping schedule_plan row with non-UUID id: %r", plan_id_raw)
+                continue
+
+            plan_id = str(plan_id_raw)
 
             if extracted_emb is not None:
                 plan_emb = get_or_encode_embedding(
@@ -410,7 +475,7 @@ class MatchingService:
                 embedding_sim=sim,
                 extraction_confidence=extraction_confidence,
                 extracted_discipline=discipline,
-                plan_discipline=plan.get("discipline", "unknown"),
+                plan_discipline=plan.get("discipline"),
                 date_proximity_factor=date_prox,
             )
             candidates.append((plan, score, sim))
@@ -419,7 +484,14 @@ class MatchingService:
         candidates.sort(key=lambda x: x[1], reverse=True)
 
         if not candidates:
-            return self._handle_unmatched(extracted_activity_id, activity_description, "No schedule activities available")
+            return self._handle_unmatched(
+                extracted_activity_id,
+                activity_description,
+                reason="No usable schedule activities available",
+                best_score=0.0,
+                actor_id=actor_id,
+                project_id=project_id,
+            )
 
         best_plan, top_score, top_sim = candidates[0]
 
@@ -435,8 +507,8 @@ class MatchingService:
         for p, s, _ in candidates[:3]:
             candidate_matches.append(
                 CandidateMatch(
-                    plan_activity_id=UUID(p["id"]),
-                    activity_code=p.get("activity_code", "N/A"),
+                    plan_activity_id=UUID(str(p["id"])),
+                    activity_code=p.get("activity_code") or "N/A",
                     activity_description=p["activity_description"],
                     score=s,
                 )
@@ -444,7 +516,6 @@ class MatchingService:
 
         # Decision Banding
         match_id = uuid4()
-        status = "unmatched"
 
         if top_score >= 0.85 and not is_ambiguous:
             status = "auto_linked"
@@ -458,31 +529,50 @@ class MatchingService:
             match_row = {
                 "id": str(match_id),
                 "extracted_activity_id": str(extracted_activity_id),
-                "plan_activity_id": best_plan["id"],
+                "plan_activity_id": str(best_plan["id"]),
                 "confidence_score": top_score,
                 "status": status,
                 "candidates": [c.model_dump(mode="json") for c in candidate_matches] if is_ambiguous else None,
             }
 
             if supabase:
-                try:
-                    supabase.table("schedule_matches").insert(match_row).execute()
-                    log_action(
-                        entity_type="schedule_matches",
-                        entity_id=match_id,
-                        action="matched",
-                        actor_id=actor_id,
-                        actor_role="system",
-                        new_state=match_row,
+                # extracted_activity_id is UNIQUE: re-running the matcher for the
+                # same activity must update the existing row, not raise a
+                # duplicate-key error that then gets swallowed.
+                rows = execute_write(
+                    supabase.table("schedule_matches").upsert(
+                        match_row, on_conflict="extracted_activity_id"
+                    ),
+                    table="schedule_matches",
+                    operation=f"match.persist_{status}",
+                )
+                if rows and rows[0].get("id"):
+                    match_id = UUID(str(rows[0]["id"]))
+
+                log_action(
+                    entity_type="schedule_matches",
+                    entity_id=match_id,
+                    action="auto_linked" if status == "auto_linked" else "flagged",
+                    project_id=project_id,
+                    actor_id=actor_id,
+                    actor_role="system",
+                    new_state=match_row,
+                    confidence_score=top_score,
+                )
+
+                if status == "pending_review" and project_id:
+                    notify_pending_review(
+                        project_id=project_id,
+                        match_id=match_id,
+                        activity_description=activity_description,
+                        confidence=top_score,
                     )
-                except Exception as e:
-                    logger.error(f"Failed to insert schedule_matches row: {e}")
 
             return MatchResult(
                 status=status,
                 extracted_activity_id=extracted_activity_id,
                 match_id=match_id,
-                plan_activity_id=UUID(best_plan["id"]),
+                plan_activity_id=UUID(str(best_plan["id"])),
                 confidence_score=top_score,
                 candidates=candidate_matches if is_ambiguous else None,
             )
@@ -491,7 +581,9 @@ class MatchingService:
                 extracted_activity_id,
                 activity_description,
                 reason=f"Top candidate score {top_score} below review threshold 0.70",
+                best_score=top_score,
                 actor_id=actor_id,
+                project_id=project_id,
             )
 
     def _handle_unmatched(
@@ -499,37 +591,64 @@ class MatchingService:
         extracted_activity_id: UUID,
         activity_desc: str,
         reason: str,
+        best_score: float = 0.0,
         actor_id: Optional[UUID] = None,
+        project_id: Optional[UUID] = None,
     ) -> MatchResult:
-        """Handles activities that do not meet the matching threshold."""
+        """
+        Record an activity that does not meet the matching threshold.
+
+        Writes both `best_score` and `reason`. The previous implementation wrote
+        only `reason`, which did not exist as a column, so every insert failed and
+        the error was logged and discarded.
+        """
         supabase = get_supabase_client()
         unmatched_id = uuid4()
         unmatched_row = {
             "id": str(unmatched_id),
             "extracted_activity_id": str(extracted_activity_id),
+            "best_score": best_score,
             "reason": reason,
+            "resolution": "unresolved",
         }
 
         if supabase:
-            try:
-                supabase.table("unmatched_activities").insert(unmatched_row).execute()
-                log_action(
-                    entity_type="unmatched_activities",
-                    entity_id=unmatched_id,
-                    action="matched",
-                    actor_id=actor_id,
-                    actor_role="system",
-                    new_state=unmatched_row,
+            # extracted_activity_id is UNIQUE here too.
+            rows = execute_write(
+                supabase.table("unmatched_activities").upsert(
+                    unmatched_row, on_conflict="extracted_activity_id"
+                ),
+                table="unmatched_activities",
+                operation="match.persist_unmatched",
+            )
+            if rows and rows[0].get("id"):
+                unmatched_id = UUID(str(rows[0]["id"]))
+
+            log_action(
+                entity_type="unmatched_activities",
+                entity_id=unmatched_id,
+                action="flagged",
+                project_id=project_id,
+                actor_id=actor_id,
+                actor_role="system",
+                new_state=unmatched_row,
+                reason=reason,
+                confidence_score=best_score,
+            )
+
+            if project_id:
+                notify_unmatched(
+                    project_id=project_id,
+                    extracted_activity_id=extracted_activity_id,
+                    activity_description=activity_desc,
                     reason=reason,
                 )
-            except Exception as e:
-                logger.error(f"Failed to insert unmatched_activities row: {e}")
 
         return MatchResult(
             status="unmatched",
             extracted_activity_id=extracted_activity_id,
             match_id=None,
             plan_activity_id=None,
-            confidence_score=0.0,
+            confidence_score=best_score,
             candidates=None,
         )

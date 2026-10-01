@@ -7,7 +7,7 @@ import {
   FileSpreadsheet,
   AlertCircle,
 } from 'lucide-react';
-import { apiService } from '../../api/apiService';
+import { apiClient, formatApiErrorMessage } from '../../lib/apiClient';
 import { useProject } from '../../context/ProjectContext';
 
 export const CreateProjectPage: React.FC = () => {
@@ -19,18 +19,15 @@ export const CreateProjectPage: React.FC = () => {
 
   // Form State across steps
   const [formData, setFormData] = useState({
-    name: 'Delhi-Meerut RRTS — Package 7',
-    code: 'RRTS-PKG07',
-    client: 'National Capital Region Transport Corp.',
-    location: 'Ghaziabad, Uttar Pradesh',
-    contract_type: 'EPC Design & Build',
-    budget: '₹620 Cr',
-    start_date: '2026-10-01',
-    end_date: '2028-03-31',
-    description: 'Elevated viaduct construction, trackwork, and traction power substation installation.',
-    schedule_file: 'sample_rrts_baseline_p6.csv',
-    lead_planner: 'Shourya (Lead Planner)',
-    site_supervisor: 'Amit Verma (Site Sup)',
+    name: '',
+    code: '',
+    client: '',
+    location: '',
+    contract_type: '',
+    budget: '',
+    start_date: '',
+    end_date: '',
+    description: '',
   });
 
   const validateStep = (currentStep: number): boolean => {
@@ -102,7 +99,7 @@ export const CreateProjectPage: React.FC = () => {
 
     setLoading(true);
     try {
-      const created = await apiService.createProject({
+      const created = await apiClient.createProject({
         name: formData.name.trim(),
         code: formData.code.trim(),
         client: formData.client.trim(),
@@ -119,6 +116,7 @@ export const CreateProjectPage: React.FC = () => {
       navigate(`/projects/${created.id}/overview`);
     } catch (err) {
       console.error('Failed to create project', err);
+      setErrors({ form: formatApiErrorMessage(err) });
       setLoading(false);
     }
   };
@@ -399,62 +397,25 @@ export const CreateProjectPage: React.FC = () => {
           </div>
         )}
 
-        {/* Step 3: Import Schedule */}
         {step === 3 && (
           <div>
             <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '6px' }}>Step 3: Master Schedule Baseline</h2>
             <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginBottom: '24px' }}>
-              Upload or link your master Primavera P6 WBS baseline activities.
+              Create the workspace first, then import the approved CSV or Excel baseline from its Schedule page.
             </p>
-
-            <div
-              style={{
-                border: '2px dashed var(--border-medium)',
-                borderRadius: 'var(--radius-md)',
-                padding: '36px',
-                textAlign: 'center',
-                backgroundColor: 'var(--bg-surface)',
-                marginBottom: '20px',
-              }}
-            >
-              <FileSpreadsheet size={36} style={{ color: 'var(--accent-blue)', margin: '0 auto 12px' }} />
-              <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '4px' }}>
-                Primavera P6 Schedule Attached (Demo)
-              </div>
-              <p style={{ fontSize: '12px', color: 'var(--text-muted)', maxWidth: '400px', margin: '0 auto' }}>
-                Loaded 21 verified baseline WBS activities across Civil, Piping, Electrical, and Instrumentation disciplines.
-              </p>
+            <div style={{ border: '1px dashed var(--border-medium)', borderRadius: 'var(--radius-md)', padding: '24px', textAlign: 'center', color: 'var(--text-muted)' }}>
+              <FileSpreadsheet size={32} style={{ color: 'var(--accent-blue)', margin: '0 auto 10px' }} />
+              No baseline schedule has been imported yet.
             </div>
           </div>
         )}
 
-        {/* Step 4: Assign Team */}
         {step === 4 && (
           <div>
             <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '6px' }}>Step 4: Governance & Team Assignment</h2>
             <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginBottom: '24px' }}>
-              Assign certified planners for reconciliation approval and site supervisors for report uploads.
+              Team members can be invited after the project is created from the project's Team page.
             </p>
-
-            <div className="form-group">
-              <label className="form-label">Lead Project Planner (Approval Authority) *</label>
-              <input
-                type="text"
-                className="form-input"
-                value={formData.lead_planner}
-                onChange={(e) => setFormData({ ...formData, lead_planner: e.target.value })}
-              />
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Site Supervisor (Ingestion Authority) *</label>
-              <input
-                type="text"
-                className="form-input"
-                value={formData.site_supervisor}
-                onChange={(e) => setFormData({ ...formData, site_supervisor: e.target.value })}
-              />
-            </div>
           </div>
         )}
 
@@ -485,9 +446,15 @@ export const CreateProjectPage: React.FC = () => {
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: 'var(--text-muted)', fontSize: '13px' }}>Baseline Schedule:</span>
-                <span style={{ color: 'var(--text-primary)', fontSize: '13px' }}>21 P6 activities ready</span>
+                <span style={{ color: 'var(--text-primary)', fontSize: '13px' }}>Not imported</span>
               </div>
             </div>
+          </div>
+        )}
+
+        {errors.form && (
+          <div role="alert" style={{ color: 'var(--error, #ef4444)', marginTop: '16px' }}>
+            {errors.form}
           </div>
         )}
 

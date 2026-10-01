@@ -15,8 +15,6 @@ import {
   Users,
   Settings,
   ArrowLeft,
-  Shield,
-  ShieldAlert,
   User,
   LogOut,
   ChevronDown,
@@ -30,7 +28,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useProject } from '../../context/ProjectContext';
-import { apiService } from '../../api/apiService';
+import { apiClient } from '../../lib/apiClient';
 import { ProjectNotification } from '../../lib/types';
 import { GlobalSearchModal } from '../common/GlobalSearchModal';
 import { NotificationsDrawer } from '../common/NotificationsDrawer';
@@ -38,11 +36,11 @@ import { ThemeToggle } from '../common/ThemeToggle';
 
 export const ProjectWorkspaceLayout: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const projectId = id || 'proj-01';
   const navigate = useNavigate();
   const location = useLocation();
-  const { role, profile, switchRoleForDemo, signOut } = useAuth();
+  const { role, profile, signOut } = useAuth();
   const { activeProject, projects, setActiveProjectId } = useProject();
+  const projectId = id || activeProject?.id || '';
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
@@ -59,14 +57,14 @@ export const ProjectWorkspaceLayout: React.FC = () => {
   useEffect(() => {
     const loadNotifications = async () => {
       try {
-        const notifs = await apiService.getNotifications();
+        const notifs = await apiClient.getNotifications(projectId);
         setNotifications(notifs);
       } catch (e) {
         console.error('Failed to load notifications', e);
       }
     };
     loadNotifications();
-  }, []);
+  }, [projectId]);
 
   // Global Ctrl+K / Cmd+K shortcut listener
   useEffect(() => {
@@ -383,31 +381,8 @@ export const ProjectWorkspaceLayout: React.FC = () => {
               )}
             </button>
 
-            {/* Light / Dark Mode Theme Toggle */}
+            {/* Theme Toggle */}
             <ThemeToggle />
-
-            {/* Demo Role Switcher */}
-            <div className="demo-role-switcher" title="Toggle Planner vs Supervisor permissions">
-              <span className="role-switcher-label" style={{ fontSize: '11px', color: 'var(--text-muted)' }}>ROLE:</span>
-              <div className="role-buttons">
-                <button
-                  type="button"
-                  className={`role-btn ${role === 'planner' ? 'active planner' : ''}`}
-                  onClick={() => switchRoleForDemo('planner')}
-                >
-                  <Shield size={13} />
-                  <span>Planner</span>
-                </button>
-                <button
-                  type="button"
-                  className={`role-btn ${role === 'supervisor' ? 'active supervisor' : ''}`}
-                  onClick={() => switchRoleForDemo('supervisor')}
-                >
-                  <ShieldAlert size={13} />
-                  <span>Supervisor</span>
-                </button>
-              </div>
-            </div>
 
             {/* User Profile Badge */}
             <div className="user-profile-badge" style={{ padding: '4px 10px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface-elevated)' }}>
@@ -415,8 +390,8 @@ export const ProjectWorkspaceLayout: React.FC = () => {
                 <User size={15} />
               </div>
               <div className="user-info">
-                <span className="user-name" style={{ fontSize: '12px' }}>{profile?.full_name || 'Shourya (Lead)'}</span>
-                <span className={`user-role-tag ${role}`}>{role.toUpperCase()}</span>
+                <span className="user-name" style={{ fontSize: '12px' }}>{profile?.full_name || 'User'}</span>
+                <span className={`user-role-tag ${role || ''}`}>{(role || '').toUpperCase()}</span>
               </div>
             </div>
 
@@ -455,11 +430,11 @@ export const ProjectWorkspaceLayout: React.FC = () => {
         onClose={() => setNotificationsOpen(false)}
         notifications={notifications}
         onMarkAllRead={async () => {
-          await apiService.clearAllNotifications();
+          await apiClient.markAllNotificationsRead(projectId);
           setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
         }}
         onSelectNotification={async (item) => {
-          await apiService.markNotificationRead(item.id);
+          await apiClient.markNotificationRead(item.id);
           setNotifications((prev) => prev.map((n) => (n.id === item.id ? { ...n, read: true } : n)));
           if (item.link) {
             setNotificationsOpen(false);

@@ -22,7 +22,7 @@ export const UploadStatusCard: React.FC<UploadStatusCardProps> = ({
   onReset,
 }) => {
   const { id } = useParams<{ id: string }>();
-  const projectId = id || 'proj-01';
+  const projectId = id;
   const steps = [
     { key: 'uploading', label: '1. Ingest File to Storage' },
     { key: 'extracting', label: '2. AI Activity Extraction & Confidence' },
@@ -119,7 +119,7 @@ export const UploadStatusCard: React.FC<UploadStatusCardProps> = ({
               </button>
             )}
             <Link
-              to={`/projects/${projectId}/reconciliation`}
+              to={projectId ? `/projects/${projectId}/reconciliation` : '/projects'}
               className="btn btn-primary"
               style={{ fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.4rem', textDecoration: 'none' }}
             >

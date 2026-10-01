@@ -3,12 +3,13 @@
  * Matches the Supabase PostgreSQL Schema and FastAPI API models.
  */
 
-export type UserRole = 'planner' | 'supervisor';
+export type UserRole = 'planner' | 'supervisor' | 'manager' | 'engineer';
 
 export interface UserProfile {
   id: string;
   email: string | null;
   full_name: string | null;
+  company: string | null;
   role: UserRole;
   created_at: string;
   updated_at: string;
@@ -199,14 +200,17 @@ export interface Project {
   team_size: number;
 }
 
-export type ReportStatus = 'uploaded' | 'processing' | 'completed' | 'failed';
+export type ReportStatus = 'uploaded' | 'pending' | 'processing' | 'complete' | 'completed' | 'failed';
 
 export interface ReportItem {
   id: string;
   project_id: string;
   file_name: string;
+  display_name?: string | null;
   file_size: string;
-  file_type: 'pdf' | 'docx' | 'xlsx' | 'csv' | 'txt';
+  file_size_bytes?: number | null;
+  file_extension?: string | null;
+  file_type: 'pdf' | 'docx' | 'xlsx' | 'csv' | 'txt' | 'xls' | 'log' | string;
   status: ReportStatus;
   uploaded_by: string;
   uploaded_at: string;
@@ -214,6 +218,7 @@ export interface ReportItem {
   matched_count: number;
   review_count: number;
   unmatched_count: number;
+  archived_at?: string;
   error_message?: string;
 }
 

@@ -4,7 +4,7 @@ import {
   UserPlus,
   Trash2,
 } from 'lucide-react';
-import { apiService } from '../../api/apiService';
+import { apiClient } from '../../lib/apiClient';
 import { TeamMember, ExtendedRole } from '../../lib/types';
 import { LoadingSkeleton } from '../../components/common/LoadingSkeleton';
 import { Modal } from '../../components/ui/Modal';
@@ -12,7 +12,7 @@ import { Toast, ToastMessage } from '../../components/common/Toast';
 
 export const ProjectTeamPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const projectId = id || 'proj-01';
+  const projectId = id || '';
 
   const [loading, setLoading] = useState(true);
   const [team, setTeam] = useState<TeamMember[]>([]);
@@ -28,7 +28,7 @@ export const ProjectTeamPage: React.FC = () => {
   const loadTeam = async () => {
     setLoading(true);
     try {
-      const data = await apiService.getTeam(projectId);
+      const data = await apiClient.getTeam(projectId);
       setTeam(data);
     } catch (err) {
       console.error('Failed to load team', err);
@@ -65,7 +65,7 @@ export const ProjectTeamPage: React.FC = () => {
 
     setErrors({});
     try {
-      await apiService.inviteTeamMember(projectId, {
+      await apiClient.inviteTeamMember(projectId, {
         ...inviteForm,
         name: trimmedName,
         email: trimmedEmail,
@@ -86,7 +86,7 @@ export const ProjectTeamPage: React.FC = () => {
 
   const handleRemove = async (memberId: string, name: string) => {
     try {
-      await apiService.removeTeamMember(memberId);
+      await apiClient.removeTeamMember(projectId, memberId);
       setToast({
         id: Date.now().toString(),
         type: 'info',

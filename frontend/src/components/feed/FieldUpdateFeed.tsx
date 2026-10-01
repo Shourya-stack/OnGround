@@ -5,11 +5,11 @@ import { Clock, MapPin, ArrowRight } from 'lucide-react';
 
 interface FieldUpdateFeedProps {
   updates: FieldUpdateRecord[];
-  projectId?: string;
+  projectId: string;
   limit?: number;
 }
 
-export const FieldUpdateFeed: React.FC<FieldUpdateFeedProps> = ({ updates, projectId = 'proj-01', limit = 5 }) => {
+export const FieldUpdateFeed: React.FC<FieldUpdateFeedProps> = ({ updates, projectId, limit = 5 }) => {
   const displayUpdates = limit ? updates.slice(0, limit) : updates;
 
   if (!displayUpdates || displayUpdates.length === 0) {

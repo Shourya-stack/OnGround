@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Search, X, CalendarRange, FileText, Activity, AlertCircle } from 'lucide-react';
-import { apiService } from '../../api/apiService';
+import { apiClient } from '../../lib/apiClient';
 import { SchedulePlanItem, ExtractedActivity, ReportItem, ScheduleMatch } from '../../lib/types';
 
 interface GlobalSearchModalProps {
@@ -20,7 +20,7 @@ interface SearchResultItem {
 
 export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({ isOpen, onClose }) => {
   const { id } = useParams<{ id: string }>();
-  const projectId = id || 'proj-01';
+  const projectId = id || '';
   const navigate = useNavigate();
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -36,10 +36,10 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({ isOpen, on
       const loadAll = async () => {
         try {
           const [s, a, r, m] = await Promise.all([
-            apiService.getSchedule(projectId),
-            apiService.getActivities(projectId),
-            apiService.getReports(projectId),
-            apiService.getMatches(projectId),
+            apiClient.getSchedule({ project_id: projectId }),
+            apiClient.getActivities(projectId),
+            apiClient.getReports({ project_id: projectId }),
+            apiClient.getMatches({ project_id: projectId }),
           ]);
           setSchedule(s);
           setActivities(a);
@@ -72,33 +72,14 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({ isOpen, on
   const results: SearchResultItem[] = [];
 
   if (!q) {
-    // Default recommended shortcuts
-    results.push(
-      {
-        id: 'rec-1',
-        category: 'review',
-        title: 'Pending Human Verification Queue',
-        subtitle: `${matches.filter((m) => m.status === 'pending_review').length} ambiguous matches awaiting certified planner sign-off`,
-        link: `/projects/${projectId}/review`,
-        badge: 'Priority',
-      },
-      {
-        id: 'rec-2',
-        category: 'activity',
-        title: 'PIP-201 • Piping Spool Fabrication',
-        subtitle: '12-inch cooling water line in Unit 200 Bay 4',
-        link: `/projects/${projectId}/schedule`,
-        badge: 'Piping',
-      },
-      {
-        id: 'rec-3',
-        category: 'report',
-        title: 'DPR_Piping_Package3_2026-09-12.pdf',
-        subtitle: 'Ingested daily construction progress log',
-        link: `/projects/${projectId}/reports`,
-        badge: 'Report',
-      }
-    );
+    results.push({
+      id: 'rec-pending-review',
+      category: 'review',
+      title: 'Pending Human Verification Queue',
+      subtitle: `${matches.filter((m) => m.status === 'pending_review').length} matches awaiting planner review`,
+      link: `/projects/${projectId}/review`,
+      badge: 'Review',
+    });
   } else {
     // Search schedule items
     schedule.forEach((s) => {

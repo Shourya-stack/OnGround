@@ -13,26 +13,59 @@ CREATE TABLE IF NOT EXISTS public.profiles (
     id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
     email TEXT,
     full_name TEXT,
-    role TEXT NOT NULL CHECK (role IN ('planner', 'supervisor')) DEFAULT 'supervisor',
+    company TEXT,
+    role TEXT NOT NULL CHECK (role IN ('planner', 'supervisor', 'manager', 'engineer')) DEFAULT 'supervisor',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Trigger to automatically create profile on signup
-CREATE OR REPLACE FUNCTION public.handle_new_user()
-RETURNS TRIGGER AS $$
+-- Generic updated_at touch trigger function (shared)
+CREATE OR REPLACE FUNCTION public.touch_updated_at()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
 BEGIN
-    INSERT INTO public.profiles (id, email, full_name, role)
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$;
+
+-- Trigger to automatically create profile on signup.
+-- SECURITY: role is ALWAYS 'supervisor' here. Trusting raw_user_meta_data->>'role'
+-- would let any self-registering user claim 'planner'. Elevation is service-side only.
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+BEGIN
+    INSERT INTO public.profiles (id, email, full_name, company, role)
     VALUES (
         NEW.id,
         NEW.email,
         COALESCE(NEW.raw_user_meta_data->>'full_name', split_part(NEW.email, '@', 1)),
-        COALESCE(NEW.raw_user_meta_data->>'role', 'supervisor')
+        COALESCE(NEW.raw_user_meta_data->>'company', ''),
+        'supervisor'
     )
     ON CONFLICT (id) DO NOTHING;
+
+    -- Auto-accept any pending project invitations for this email address.
+    INSERT INTO public.project_memberships (project_id, user_id, role)
+    SELECT pi.project_id, NEW.id, pi.role
+      FROM public.project_invites pi
+     WHERE lower(pi.email) = lower(NEW.email)
+       AND pi.accepted_at IS NULL
+    ON CONFLICT (project_id, user_id) DO NOTHING;
+
+    UPDATE public.project_invites
+       SET accepted_at = NOW()
+     WHERE lower(email) = lower(NEW.email)
+       AND accepted_at IS NULL;
+
     RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$;
 
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
@@ -58,13 +91,49 @@ CREATE TRIGGER protect_profile_role_trigger
     FOR EACH ROW EXECUTE FUNCTION public.protect_profile_role();
 
 -- =============================================================================
--- 1.1 PROJECT_MEMBERSHIPS (Multi-Tenant Isolation & Access Control)
+-- 1.1 PROJECTS (Multi-Project Backbone)
+-- Users create as many projects as they need. All tenant data hangs off this.
+-- Counters (reports_count, progress, ...) are intentionally NOT stored here —
+-- they are derived by the public.project_stats view to avoid stale numbers.
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS public.projects (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name TEXT NOT NULL,
+    code TEXT NOT NULL,
+    client TEXT,
+    location TEXT,
+    contract_type TEXT,
+    budget NUMERIC(18, 2),
+    currency TEXT NOT NULL DEFAULT 'INR',
+    status TEXT NOT NULL CHECK (status IN ('active', 'completed', 'archived')) DEFAULT 'active',
+    start_date DATE,
+    end_date DATE,
+    created_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    archived_at TIMESTAMPTZ
+);
+
+-- Project code is unique per owner, so two users may both use "P-001".
+CREATE UNIQUE INDEX IF NOT EXISTS idx_projects_code_unique
+    ON public.projects (lower(code), COALESCE(created_by, '00000000-0000-0000-0000-000000000000'::uuid));
+CREATE INDEX IF NOT EXISTS idx_projects_status ON public.projects(status);
+CREATE INDEX IF NOT EXISTS idx_projects_created_by ON public.projects(created_by);
+
+DROP TRIGGER IF EXISTS projects_touch_updated_at ON public.projects;
+CREATE TRIGGER projects_touch_updated_at
+    BEFORE UPDATE ON public.projects
+    FOR EACH ROW EXECUTE FUNCTION public.touch_updated_at();
+
+
+-- =============================================================================
+-- 1.2 PROJECT_MEMBERSHIPS (Multi-Tenant Isolation & Access Control)
 -- =============================================================================
 CREATE TABLE IF NOT EXISTS public.project_memberships (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    project_id UUID NOT NULL,
+    project_id UUID NOT NULL REFERENCES public.projects(id) ON DELETE CASCADE,
     user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-    role TEXT CHECK (role IN ('planner', 'supervisor')) DEFAULT 'supervisor',
+    role TEXT CHECK (role IN ('planner', 'supervisor', 'manager', 'engineer')) DEFAULT 'supervisor',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     UNIQUE(project_id, user_id)
 );
@@ -74,11 +143,31 @@ CREATE INDEX IF NOT EXISTS idx_project_memberships_project ON public.project_mem
 
 
 -- =============================================================================
+-- 1.3 PROJECT_INVITES (pending team members who have not signed up yet)
+-- Converted into a real membership by handle_new_user() on signup.
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS public.project_invites (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    project_id UUID NOT NULL REFERENCES public.projects(id) ON DELETE CASCADE,
+    email TEXT NOT NULL,
+    full_name TEXT,
+    role TEXT NOT NULL CHECK (role IN ('planner', 'supervisor', 'manager', 'engineer')) DEFAULT 'supervisor',
+    invited_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+    accepted_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (project_id, email)
+);
+
+CREATE INDEX IF NOT EXISTS idx_project_invites_email ON public.project_invites(lower(email));
+CREATE INDEX IF NOT EXISTS idx_project_invites_project ON public.project_invites(project_id);
+
+
+-- =============================================================================
 -- 2. SCHEDULE_PLAN (Baseline WBS Schedule — Static Ground Truth)
 -- =============================================================================
 CREATE TABLE IF NOT EXISTS public.schedule_plan (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    project_id UUID NOT NULL DEFAULT '00000000-0000-0000-0000-000000000001'::uuid,
+    project_id UUID NOT NULL REFERENCES public.projects(id) ON DELETE CASCADE,
     activity_code TEXT NOT NULL,
     activity_description TEXT NOT NULL,
     discipline TEXT NOT NULL CHECK (discipline IN ('civil', 'piping', 'electrical', 'instrumentation', 'static_rotating_equipment', 'hse')),
@@ -97,16 +186,29 @@ CREATE INDEX IF NOT EXISTS idx_schedule_plan_code ON public.schedule_plan(activi
 -- =============================================================================
 CREATE TABLE IF NOT EXISTS public.extractions (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    project_id UUID NOT NULL DEFAULT '00000000-0000-0000-0000-000000000001'::uuid,
+    project_id UUID NOT NULL REFERENCES public.projects(id) ON DELETE CASCADE,
     file_url TEXT NOT NULL,
+    file_name TEXT,
+    display_name TEXT,
+    file_size_bytes BIGINT,
+    file_extension TEXT,
     file_type TEXT CHECK (file_type IN ('daily_report', 'spreadsheet', 'voice_transcript')),
     status TEXT NOT NULL CHECK (status IN ('pending', 'processing', 'complete', 'failed')) DEFAULT 'pending',
+    error_message TEXT,
     uploaded_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    archived_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_extractions_project ON public.extractions(project_id);
 CREATE INDEX IF NOT EXISTS idx_extractions_status ON public.extractions(status);
+CREATE INDEX IF NOT EXISTS idx_extractions_archived ON public.extractions(archived_at);
+
+DROP TRIGGER IF EXISTS extractions_touch_updated_at ON public.extractions;
+CREATE TRIGGER extractions_touch_updated_at
+    BEFORE UPDATE ON public.extractions
+    FOR EACH ROW EXECUTE FUNCTION public.touch_updated_at();
 
 -- =============================================================================
 -- 4. EXTRACTED_ACTIVITIES (Normalized Activities from AI Extraction)
@@ -151,7 +253,11 @@ CREATE TABLE IF NOT EXISTS public.unmatched_activities (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     extracted_activity_id UUID NOT NULL UNIQUE REFERENCES public.extracted_activities(id) ON DELETE CASCADE,
     best_score FLOAT,
+    reason TEXT,
     resolution TEXT NOT NULL CHECK (resolution IN ('unresolved', 'marked_new_activity', 'manually_linked')) DEFAULT 'unresolved',
+    linked_plan_activity_id UUID REFERENCES public.schedule_plan(id) ON DELETE SET NULL,
+    resolved_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+    resolved_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -163,29 +269,131 @@ CREATE INDEX IF NOT EXISTS idx_unmatched_resolution ON public.unmatched_activiti
 -- =============================================================================
 CREATE TABLE IF NOT EXISTS public.audit_trail (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    project_id UUID REFERENCES public.projects(id) ON DELETE CASCADE,
     related_match_id UUID REFERENCES public.schedule_matches(id) ON DELETE SET NULL,
     related_unmatched_id UUID REFERENCES public.unmatched_activities(id) ON DELETE SET NULL,
-    action TEXT NOT NULL CHECK (action IN ('extracted', 'auto_linked', 'flagged', 'confirmed', 'rejected', 'manually_linked')),
+    entity_type TEXT,
+    entity_id UUID,
+    action TEXT NOT NULL CHECK (action IN (
+        'extracted', 'auto_linked', 'flagged', 'confirmed', 'rejected',
+        'manually_linked', 'uploaded', 'archived', 'imported',
+        'project_created', 'project_updated',
+        'member_invited', 'member_removed', 'reassigned'
+    )),
+    previous_state JSONB,
+    new_state JSONB,
+    reason TEXT,
     confidence_score FLOAT,
     actor UUID REFERENCES auth.users(id) ON DELETE SET NULL, -- NULL = automated system action
+    actor_role TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_audit_match ON public.audit_trail(related_match_id);
 CREATE INDEX IF NOT EXISTS idx_audit_unmatched ON public.audit_trail(related_unmatched_id);
 CREATE INDEX IF NOT EXISTS idx_audit_created ON public.audit_trail(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_audit_project ON public.audit_trail(project_id);
+CREATE INDEX IF NOT EXISTS idx_audit_entity ON public.audit_trail(entity_type, entity_id);
+
+
+-- =============================================================================
+-- 7.1 NOTIFICATIONS (generated from real pipeline events)
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS public.notifications (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    project_id UUID NOT NULL REFERENCES public.projects(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE, -- NULL = project-wide
+    type TEXT NOT NULL CHECK (type IN ('review', 'variance', 'evidence', 'system')),
+    title TEXT NOT NULL,
+    message TEXT NOT NULL,
+    link TEXT,
+    read_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_notifications_project ON public.notifications(project_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_user ON public.notifications(user_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_unread ON public.notifications(project_id, read_at);
+CREATE INDEX IF NOT EXISTS idx_notifications_created ON public.notifications(created_at DESC);
+
+
+-- =============================================================================
+-- 7.2 PROJECT_STATS view — derived counters (never stored)
+-- =============================================================================
+CREATE OR REPLACE VIEW public.project_stats AS
+SELECT
+    p.id AS project_id,
+    COALESCE(r.reports_count, 0)::BIGINT     AS reports_count,
+    COALESCE(a.activities_count, 0)::BIGINT  AS activities_count,
+    COALESCE(m.matched_count, 0)::BIGINT     AS matched_count,
+    COALESCE(m.review_count, 0)::BIGINT      AS review_count,
+    COALESCE(m.rejected_count, 0)::BIGINT    AS rejected_count,
+    COALESCE(u.unmatched_count, 0)::BIGINT   AS unmatched_count,
+    COALESCE(t.team_size, 0)::BIGINT         AS team_size,
+    COALESCE(pl.plan_count, 0)::BIGINT       AS plan_count,
+    CASE
+        WHEN COALESCE(pl.plan_count, 0) = 0 THEN 0
+        ELSE ROUND(
+            (COALESCE(m.linked_plan_count, 0)::NUMERIC / pl.plan_count::NUMERIC) * 100.0
+        )::INT
+    END AS progress
+FROM public.projects p
+LEFT JOIN (
+    SELECT project_id, COUNT(*) AS reports_count
+      FROM public.extractions
+     WHERE archived_at IS NULL
+     GROUP BY project_id
+) r ON r.project_id = p.id
+LEFT JOIN (
+    SELECT e.project_id, COUNT(ea.id) AS activities_count
+      FROM public.extractions e
+      JOIN public.extracted_activities ea ON ea.extraction_id = e.id
+     GROUP BY e.project_id
+) a ON a.project_id = p.id
+LEFT JOIN (
+    SELECT sp.project_id,
+           COUNT(*) FILTER (WHERE sm.status IN ('auto_linked', 'confirmed')) AS matched_count,
+           COUNT(*) FILTER (WHERE sm.status = 'pending_review')              AS review_count,
+           COUNT(*) FILTER (WHERE sm.status = 'rejected')                    AS rejected_count,
+           COUNT(DISTINCT sm.plan_activity_id)
+               FILTER (WHERE sm.status IN ('auto_linked', 'confirmed'))      AS linked_plan_count
+      FROM public.schedule_matches sm
+      JOIN public.schedule_plan sp ON sp.id = sm.plan_activity_id
+     GROUP BY sp.project_id
+) m ON m.project_id = p.id
+LEFT JOIN (
+    SELECT e.project_id, COUNT(ua.id) AS unmatched_count
+      FROM public.unmatched_activities ua
+      JOIN public.extracted_activities ea ON ea.id = ua.extracted_activity_id
+      JOIN public.extractions e ON e.id = ea.extraction_id
+     WHERE ua.resolution = 'unresolved'
+     GROUP BY e.project_id
+) u ON u.project_id = p.id
+LEFT JOIN (
+    SELECT project_id, COUNT(*) AS team_size
+      FROM public.project_memberships
+     GROUP BY project_id
+) t ON t.project_id = p.id
+LEFT JOIN (
+    SELECT project_id, COUNT(*) AS plan_count
+      FROM public.schedule_plan
+     GROUP BY project_id
+) pl ON pl.project_id = p.id;
 
 -- =============================================================================
 -- 8. ROW LEVEL SECURITY (RLS) POLICIES & PROJECT ISOLATION (SEC-01 & SEC-02)
 -- =============================================================================
 
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.projects ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.project_memberships ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.project_invites ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.schedule_plan ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.extractions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.extracted_activities ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.schedule_matches ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.unmatched_activities ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.audit_trail ENABLE ROW LEVEL SECURITY;
 
 -- Helper function to check if current user has 'planner' role
@@ -199,19 +407,82 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER STABLE;
 
--- Helper function to check if current user has access to a project (SEC-02)
+-- Helper function to check if current user has access to a project (SEC-02).
+-- NOTE: There is deliberately NO sentinel/default project bypass here. An earlier
+-- revision returned TRUE for '00000000-...-0001' for every authenticated user,
+-- which silently defeated multi-tenant isolation.
 CREATE OR REPLACE FUNCTION public.has_project_access(p_project_id UUID)
 RETURNS BOOLEAN AS $$
 BEGIN
-    RETURN (
-        p_project_id = '00000000-0000-0000-0000-000000000001'::uuid
-        OR EXISTS (
-            SELECT 1 FROM public.project_memberships
-            WHERE project_id = p_project_id AND user_id = auth.uid()
-        )
+    IF p_project_id IS NULL OR auth.uid() IS NULL THEN
+        RETURN FALSE;
+    END IF;
+
+    RETURN EXISTS (
+        SELECT 1 FROM public.project_memberships
+        WHERE project_id = p_project_id AND user_id = auth.uid()
     );
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER STABLE;
+
+-- Per-project planner check (preferred over the global is_planner() for writes)
+CREATE OR REPLACE FUNCTION public.is_project_planner(p_project_id UUID)
+RETURNS BOOLEAN AS $$
+BEGIN
+    IF p_project_id IS NULL OR auth.uid() IS NULL THEN
+        RETURN FALSE;
+    END IF;
+
+    RETURN EXISTS (
+        SELECT 1 FROM public.project_memberships
+        WHERE project_id = p_project_id
+          AND user_id = auth.uid()
+          AND role = 'planner'
+    );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER STABLE;
+
+-- PROJECTS: members read; any authenticated user may create their own project
+CREATE POLICY "Projects read by members"
+    ON public.projects FOR SELECT
+    TO authenticated
+    USING (public.has_project_access(id) OR created_by = auth.uid());
+
+CREATE POLICY "Projects insert by authenticated"
+    ON public.projects FOR INSERT
+    TO authenticated
+    WITH CHECK (auth.uid() IS NOT NULL AND created_by = auth.uid());
+
+CREATE POLICY "Projects update by project planner"
+    ON public.projects FOR UPDATE
+    TO authenticated
+    USING (public.is_project_planner(id) OR created_by = auth.uid())
+    WITH CHECK (public.is_project_planner(id) OR created_by = auth.uid());
+
+-- PROJECT_INVITES: only project planners manage invitations
+CREATE POLICY "Invites read by project planner"
+    ON public.project_invites FOR SELECT
+    TO authenticated
+    USING (public.is_project_planner(project_id));
+
+CREATE POLICY "Invites managed by project planner"
+    ON public.project_invites FOR ALL
+    TO authenticated
+    USING (public.is_project_planner(project_id))
+    WITH CHECK (public.is_project_planner(project_id));
+
+-- NOTIFICATIONS: project members read their own / project-wide entries
+CREATE POLICY "Notifications read by project members"
+    ON public.notifications FOR SELECT
+    TO authenticated
+    USING (public.has_project_access(project_id) AND (user_id IS NULL OR user_id = auth.uid()));
+
+CREATE POLICY "Notifications update own read state"
+    ON public.notifications FOR UPDATE
+    TO authenticated
+    USING (public.has_project_access(project_id) AND (user_id IS NULL OR user_id = auth.uid()))
+    WITH CHECK (public.has_project_access(project_id) AND (user_id IS NULL OR user_id = auth.uid()));
+
 
 -- Profiles: Authenticated users can read all profiles; users can update own profile (role protected by trigger)
 CREATE POLICY "Profiles read by authenticated"
@@ -329,26 +600,52 @@ CREATE POLICY "Unmatched activities update by planner"
         WHERE ea.id = extracted_activity_id AND (public.has_project_access(e.project_id) OR e.uploaded_by = auth.uid())
     ));
 
--- AUDIT_TRAIL: Authenticated can read; authenticated can insert (for manual links); NO UPDATE; NO DELETE (append-only)
-CREATE POLICY "Audit trail read by authenticated"
+-- AUDIT_TRAIL: project-scoped read; append-only (NO UPDATE / NO DELETE policies)
+CREATE POLICY "Audit trail read by project members"
     ON public.audit_trail FOR SELECT
     TO authenticated
-    USING (true);
+    USING (project_id IS NOT NULL AND public.has_project_access(project_id));
 
-CREATE POLICY "Audit trail insert by authenticated"
+CREATE POLICY "Audit trail insert by project members"
     ON public.audit_trail FOR INSERT
     TO authenticated
-    WITH CHECK (auth.uid() IS NOT NULL);
+    WITH CHECK (
+        auth.uid() IS NOT NULL
+        AND project_id IS NOT NULL
+        AND public.has_project_access(project_id)
+    );
 
 -- Explicitly disallow UPDATE and DELETE on audit trail
 -- (No policies created for UPDATE/DELETE, guaranteeing append-only behavior)
 
 -- =============================================================================
--- 6. PERMISSIONS & ROLE GRANTS
+-- 6. PERMISSIONS & ROLE GRANTS (least privilege — `anon` gets nothing)
 -- =============================================================================
-GRANT ALL ON ALL TABLES IN SCHEMA public TO postgres, anon, authenticated, service_role;
-GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO postgres, anon, authenticated, service_role;
-GRANT ALL ON ALL ROUTINES IN SCHEMA public TO postgres, anon, authenticated, service_role;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO postgres, anon, authenticated, service_role;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO postgres, anon, authenticated, service_role;
+GRANT USAGE ON SCHEMA public TO authenticated, service_role;
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO authenticated;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO authenticated;
+GRANT EXECUTE ON ALL ROUTINES IN SCHEMA public TO authenticated;
+
+GRANT ALL ON ALL TABLES IN SCHEMA public TO postgres, service_role;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO postgres, service_role;
+GRANT ALL ON ALL ROUTINES IN SCHEMA public TO postgres, service_role;
+
+ALTER DEFAULT PRIVILEGES IN SCHEMA public
+    GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO authenticated;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public
+    GRANT USAGE, SELECT ON SEQUENCES TO authenticated;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public
+    GRANT ALL ON TABLES TO postgres, service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public
+    GRANT ALL ON SEQUENCES TO postgres, service_role;
+
+-- Derived stats view is read-only for clients
+GRANT SELECT ON public.project_stats TO authenticated, service_role;
+
+-- Explicitly ensure the anonymous role has no table access; RLS is not the only
+-- boundary we rely on.
+REVOKE ALL ON ALL TABLES IN SCHEMA public FROM anon;
+REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM anon;
+REVOKE ALL ON ALL ROUTINES IN SCHEMA public FROM anon;
 

@@ -12,6 +12,9 @@ from backend.db.supabase_client import get_supabase_client
 
 logger = logging.getLogger("onground.auth")
 
+# Roles recognised by public.profiles / public.project_memberships.
+VALID_ROLES = ("planner", "supervisor", "manager", "engineer")
+
 
 async def get_current_user(
     authorization: Optional[str] = Header(None, description="Bearer <Supabase JWT access token>"),
@@ -88,7 +91,7 @@ async def get_current_user(
             )
         profile = prof_res.data[0]
         role = profile.get("role")
-        if role not in ("planner", "supervisor"):
+        if role not in VALID_ROLES:
             logger.warning(f"User {user_id} profile has invalid role '{role}'")
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -134,46 +137,126 @@ async def get_optional_current_user(
     authorization: Optional[str] = Header(None),
 ) -> Optional[CurrentUser]:
     """
-    Optional authentication dependency for endpoints that accept both authenticated and guest access.
+    Optional authentication dependency for endpoints that accept guest access.
+
+    Only *authentication* failures degrade to None. Server-side failures (5xx)
+    are re-raised so a broken database does not masquerade as "not logged in".
     """
     if not authorization:
         return None
     try:
         return await get_current_user(authorization=authorization)
-    except Exception:
+    except HTTPException as exc:
+        if exc.status_code >= 500:
+            raise
         return None
 
 
 def verify_user_project_access(user_id: UUID, project_id: Optional[UUID]) -> bool:
     """
-    Verifies if user has legitimate access to the given project (SEC-02, SEC-03, SEC-04).
-    Default project (00000000-0000-0000-0000-000000000001) is accessible to all authenticated users.
-    Other projects require membership in project_memberships table.
+    Verify the user is a member of the given project (SEC-02, SEC-03, SEC-04).
+
+    Access requires an explicit row in project_memberships. There is deliberately
+    NO sentinel/"default project" bypass and NO offline bypass: earlier revisions
+    returned True for project 00000000-0000-0000-0000-000000000001 for every
+    authenticated user, and True whenever the Supabase client was unconfigured,
+    both of which silently defeated multi-tenant isolation.
     """
     if not project_id:
-        return True
-    
-    proj_str = str(project_id).strip().lower()
-    if proj_str == "00000000-0000-0000-0000-000000000001":
-        return True
+        return False
 
     supabase = get_supabase_client()
     if not supabase:
-        # Offline/mock mode allows test execution
-        return True
+        logger.error(
+            "Cannot verify project access for user %s: database unavailable. Denying.",
+            user_id,
+        )
+        return False
 
     try:
         res = (
             supabase.table("project_memberships")
             .select("id")
-            .eq("project_id", proj_str)
+            .eq("project_id", str(project_id))
             .eq("user_id", str(user_id))
             .execute()
         )
-        if res.data and len(res.data) > 0:
-            return True
-        return False
+        return bool(res.data)
     except Exception as e:
-        logger.warning(f"Error checking project membership for user {user_id} on project {project_id}: {e}")
+        logger.warning(
+            f"Error checking project membership for user {user_id} on project {project_id}: {e}"
+        )
         return False
+
+
+def get_user_project_role(user_id: UUID, project_id: UUID) -> Optional[str]:
+    """
+    Return the user's role within a specific project, or None if not a member.
+    Project-scoped role takes precedence over the global profiles.role.
+    """
+    supabase = get_supabase_client()
+    if not supabase:
+        return None
+
+    try:
+        res = (
+            supabase.table("project_memberships")
+            .select("role")
+            .eq("project_id", str(project_id))
+            .eq("user_id", str(user_id))
+            .execute()
+        )
+        if res.data:
+            return res.data[0].get("role")
+        return None
+    except Exception as e:
+        logger.warning(
+            f"Error resolving project role for user {user_id} on project {project_id}: {e}"
+        )
+        return None
+
+
+def require_project_access(user: CurrentUser, project_id: Optional[UUID]) -> UUID:
+    """
+    Assert the user may access `project_id`, raising the appropriate HTTPException.
+
+    Returns the validated project_id so callers can use it directly.
+    """
+    if not project_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="project_id is required.",
+        )
+
+    if not verify_user_project_access(user.id, project_id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"User not authorized for project {project_id}",
+        )
+
+    return project_id
+
+
+def require_project_planner(user: CurrentUser, project_id: Optional[UUID]) -> UUID:
+    """
+    Assert the user is a planner on `project_id`.
+
+    Falls back to the global profile role only when the membership row carries no
+    explicit role, so existing single-role deployments keep working.
+    """
+    validated = require_project_access(user, project_id)
+
+    project_role = get_user_project_role(user.id, validated)
+    effective_role = project_role or user.role
+
+    if effective_role != "planner":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=(
+                f"Forbidden: Action requires the 'planner' role on project {validated}. "
+                f"Current role: '{effective_role}'"
+            ),
+        )
+
+    return validated
 

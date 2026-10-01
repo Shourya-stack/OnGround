@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import {
   Search,
@@ -16,7 +16,7 @@ import { ProgressBar } from '../../components/ui/ProgressBar';
 
 export const ProjectSchedulePage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const projectId = id || 'proj-01';
+  const projectId = id || '';
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -26,6 +26,8 @@ export const ProjectSchedulePage: React.FC = () => {
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [selectedActivity, setSelectedActivity] = useState<SchedulePlanItem | null>(null);
   const [toast, setToast] = useState<ToastMessage | null>(null);
+  const importInputRef = useRef<HTMLInputElement>(null);
+  const [importing, setImporting] = useState(false);
 
   const disciplines = ['all', 'civil', 'piping', 'electrical', 'instrumentation', 'static_rotating_equipment', 'hse'];
   const statusFilters = ['all', 'ON_TRACK', 'ATTENTION', 'DELAYED', 'COMPLETED'];
@@ -38,7 +40,7 @@ export const ProjectSchedulePage: React.FC = () => {
       if (selectedDiscipline && selectedDiscipline !== 'all') {
         params.discipline = selectedDiscipline;
       }
-      const data = await apiClient.getSchedule(params);
+      const data = await apiClient.getSchedule({ project_id: projectId, ...params });
       setSchedule(data);
     } catch (err: any) {
       console.error('Failed to load schedule from backend API', err);
@@ -124,13 +126,29 @@ export const ProjectSchedulePage: React.FC = () => {
     }
   };
 
-  const handleImportMock = () => {
-    setToast({
-      id: Date.now().toString(),
-      type: 'info',
-      title: 'Baseline Synchronized',
-      message: 'Schedule baseline is up-to-date with 21 verified WBS nodes.',
-    });
+  const handleImport = async (file?: File) => {
+    if (!file) return;
+    setImporting(true);
+    try {
+      const result = await apiClient.importSchedule(projectId, file);
+      await loadSchedule();
+      setToast({
+        id: Date.now().toString(),
+        type: result.errors.length ? 'info' : 'success',
+        title: 'Schedule Import Finished',
+        message: `${result.imported} inserted, ${result.updated} updated, ${result.skipped} skipped${result.errors.length ? `, ${result.errors.length} row errors` : ''}.`,
+      });
+    } catch (err: any) {
+      setToast({
+        id: Date.now().toString(),
+        type: 'error',
+        title: 'Schedule Import Failed',
+        message: formatApiErrorMessage(err),
+      });
+    } finally {
+      setImporting(false);
+      if (importInputRef.current) importInputRef.current.value = '';
+    }
   };
 
   return (
@@ -147,11 +165,18 @@ export const ProjectSchedulePage: React.FC = () => {
         </div>
 
         <div style={{ display: 'flex', gap: '10px' }}>
+          <input
+            ref={importInputRef}
+            type="file"
+            accept=".csv,.xlsx,.xls"
+            style={{ display: 'none' }}
+            onChange={(event) => void handleImport(event.target.files?.[0])}
+          />
           <button type="button" className="btn btn-secondary btn-sm" onClick={handleExport}>
             <Download size={15} /> Export CSV
           </button>
-          <button type="button" className="btn btn-primary btn-sm" onClick={handleImportMock}>
-            <UploadCloud size={15} /> Import P6 XML/CSV
+          <button type="button" className="btn btn-primary btn-sm" onClick={() => importInputRef.current?.click()} disabled={importing}>
+            <UploadCloud size={15} /> {importing ? 'Importing…' : 'Import Schedule'}
           </button>
         </div>
       </div>
@@ -237,8 +262,8 @@ export const ProjectSchedulePage: React.FC = () => {
         <EmptyState
           title="No Baseline Schedule Ingested"
           description="Import your Primavera P6 contractual activity baseline WBS to track physical site progress against planned milestones."
-          actionLabel="Import Sample Baseline"
-          onAction={handleImportMock}
+          actionLabel="Import Baseline Schedule"
+          onAction={() => importInputRef.current?.click()}
         />
       ) : filtered.length === 0 ? (
         <EmptyState

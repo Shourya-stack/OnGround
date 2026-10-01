@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Project } from '../lib/types';
-import { apiService } from '../api/apiService';
+import { apiClient } from '../lib/apiClient';
 
 interface ProjectContextType {
   activeProject: Project | null;
@@ -14,15 +14,22 @@ const ProjectContext = createContext<ProjectContextType | undefined>(undefined);
 
 export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [projects, setProjects] = useState<Project[]>([]);
-  const [activeProjectId, setActiveProjectIdState] = useState<string>('proj-01');
+  const [activeProjectId, setActiveProjectIdState] = useState<string>(() => localStorage.getItem('onground_active_project_id') || '');
   const [loading, setLoading] = useState<boolean>(true);
 
   const fetchProjects = async () => {
     try {
-      const data = await apiService.getProjects();
+      const data = await apiClient.getProjects();
       setProjects(data);
+      const savedProjectId = localStorage.getItem('onground_active_project_id');
       if (data.length > 0 && !data.some((p) => p.id === activeProjectId)) {
-        setActiveProjectIdState(data[0].id);
+        const nextProjectId = data.some((p) => p.id === savedProjectId) ? savedProjectId! : data[0].id;
+        setActiveProjectIdState(nextProjectId);
+        localStorage.setItem('onground_active_project_id', nextProjectId);
+      }
+      if (data.length === 0) {
+        setActiveProjectIdState('');
+        localStorage.removeItem('onground_active_project_id');
       }
     } catch (err) {
       console.error('Failed to load projects', err);
@@ -37,6 +44,7 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const setActiveProjectId = (id: string) => {
     setActiveProjectIdState(id);
+    localStorage.setItem('onground_active_project_id', id);
   };
 
   const activeProject = projects.find((p) => p.id === activeProjectId) || projects[0] || null;

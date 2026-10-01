@@ -1,24 +1,52 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Layers, ArrowRight } from 'lucide-react';
+import { Layers, ArrowRight, Loader2 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
-import { UserRole } from '../../lib/types';
 import { ThemeToggle } from '../../components/common/ThemeToggle';
 
 export const SignupPage: React.FC = () => {
-  const { signIn } = useAuth();
+  const { signUp } = useAuth();
   const navigate = useNavigate();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [company, setCompany] = useState('');
-  const [role, setRole] = useState<UserRole>('planner');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [agreed, setAgreed] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSignup = (e: React.FormEvent) => {
+  const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
-    signIn(email, role);
-    navigate('/verify-email', { state: { email, role } });
+    setError(null);
+
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters.');
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError('Passwords do not match.');
+      return;
+    }
+    if (!agreed) {
+      setError('You must agree to the Terms of Service and Privacy Policy.');
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const hasSession = await signUp({
+        email,
+        password,
+        fullName: name,
+        company,
+      });
+      navigate(hasSession ? '/projects' : '/verify-email', { state: { email } });
+    } catch (err: any) {
+      setError(err?.message || 'Could not create account. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -35,6 +63,12 @@ export const SignupPage: React.FC = () => {
           <h1 style={{ fontSize: '1.4rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '4px' }}>Create OnGround Account</h1>
           <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>Start managing progress reconciliation across your projects</p>
         </div>
+
+        {error && (
+          <div className="alert alert-error" style={{ marginBottom: '16px', fontSize: '13px' }}>
+            {error}
+          </div>
+        )}
 
         <form onSubmit={handleSignup}>
           <div className="form-group">
@@ -61,30 +95,23 @@ export const SignupPage: React.FC = () => {
             />
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
-            <div className="form-group">
-              <label className="form-label">Organization *</label>
-              <input
-                type="text"
-                required
-                placeholder="Contractor / Authority"
-                className="form-input"
-                value={company}
-                onChange={(e) => setCompany(e.target.value)}
-              />
-            </div>
+          <div className="form-group">
+            <label className="form-label">Organization *</label>
+            <input
+              type="text"
+              required
+              placeholder="Contractor / Authority"
+              className="form-input"
+              value={company}
+              onChange={(e) => setCompany(e.target.value)}
+            />
+          </div>
 
-            <div className="form-group">
-              <label className="form-label">Primary Role *</label>
-              <select
-                className="form-select"
-                value={role}
-                onChange={(e) => setRole(e.target.value as UserRole)}
-              >
-                <option value="planner">Project Planner</option>
-                <option value="supervisor">Site Supervisor</option>
-              </select>
-            </div>
+          <div className="form-group">
+            <p className="form-label">Default account role</p>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>
+              New accounts start as Site Supervisor. Project roles are granted by a project planner.
+            </p>
           </div>
 
           <div className="form-group">
@@ -92,10 +119,24 @@ export const SignupPage: React.FC = () => {
             <input
               type="password"
               required
+              minLength={8}
               placeholder="Minimum 8 characters"
               className="form-input"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+            />
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">Confirm Password *</label>
+            <input
+              type="password"
+              required
+              minLength={8}
+              placeholder="Re-enter password"
+              className="form-input"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
             />
           </div>
 
@@ -118,8 +159,18 @@ export const SignupPage: React.FC = () => {
             type="submit"
             className="btn btn-primary"
             style={{ width: '100%', padding: '12px' }}
+            disabled={submitting}
           >
-            Create Account <ArrowRight size={16} />
+            {submitting ? (
+              <>
+                <Loader2 size={16} className="spin" style={{ marginRight: 8, display: 'inline-block' }} />
+                Creating account…
+              </>
+            ) : (
+              <>
+                Create Account <ArrowRight size={16} />
+              </>
+            )}
           </button>
         </form>
 

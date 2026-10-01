@@ -19,7 +19,7 @@ import { Modal } from '../../components/ui/Modal';
 
 export const ProjectReviewPage: React.FC = () => {
   const { id, matchId } = useParams<{ id: string; matchId?: string }>();
-  const projectId = id || 'proj-01';
+  const projectId = id || '';
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -38,8 +38,8 @@ export const ProjectReviewPage: React.FC = () => {
     setError(null);
     try {
       const [matchesData, schedData] = await Promise.all([
-        apiClient.getMatches({ status: 'pending_review' }),
-        apiClient.getSchedule(),
+        apiClient.getMatches({ project_id: projectId, status: 'pending_review' }),
+        apiClient.getSchedule({ project_id: projectId }),
       ]);
       setReviewMatches(matchesData);
       setAllSchedule(schedData);
@@ -139,8 +139,8 @@ export const ProjectReviewPage: React.FC = () => {
       plan_activity_id: item.id,
       activity_code: item.activity_code,
       activity_description: item.activity_description,
-      score: 0.88,
-      reasons: ['Manually selected by certified planner', `Discipline: ${item.discipline}`],
+      score: 0,
+      reasons: ['Manually selected', `Discipline: ${item.discipline}`],
       planned_progress: item.planned_progress,
       actual_progress: item.actual_progress,
     };
@@ -280,7 +280,7 @@ export const ProjectReviewPage: React.FC = () => {
                     </span>
                   )}
                   <span>
-                    Extraction Confidence: <strong style={{ color: 'var(--confidence-high)' }}>{((current?.extracted_activity?.extraction_confidence || 0.9) * 100).toFixed(0)}%</strong>
+                    Extraction Confidence: <strong style={{ color: 'var(--confidence-high)' }}>{((current?.extracted_activity?.extraction_confidence ?? 0) * 100).toFixed(0)}%</strong>
                   </span>
                 </div>
               </div>
@@ -300,7 +300,7 @@ export const ProjectReviewPage: React.FC = () => {
                     Primary Proposed Schedule Match
                   </span>
                   <span className="confidence-badge review">
-                    Confidence: {((current?.confidence_score || 0.78) * 100).toFixed(1)}%
+                    Confidence: {((current?.confidence_score ?? 0) * 100).toFixed(1)}%
                   </span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>

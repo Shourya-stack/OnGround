@@ -14,6 +14,7 @@ from fastapi.testclient import TestClient
 from backend.main import app
 from backend.config import get_cors_origins, get_cors_regex, validate_environment, get_environment
 from backend.auth.rate_limiter import parse_rate_limit, limiter
+from backend.tests.helpers import fake_db
 
 
 class TestProductionHardening(unittest.TestCase):
@@ -21,6 +22,7 @@ class TestProductionHardening(unittest.TestCase):
         self.client = TestClient(app)
         limiter.reset()
         self.user_id = uuid4()
+        self.project_id = uuid4()
         self.planner_headers = {"Authorization": "Bearer valid.planner.token"}
         self.supervisor_headers = {"Authorization": "Bearer valid.supervisor.token"}
 
@@ -57,12 +59,18 @@ class TestProductionHardening(unittest.TestCase):
 
     def test_schedule_with_planner_and_supervisor_allowed(self):
         with patch("backend.auth.security.get_supabase_client", return_value=self.mock_planner_supabase):
-            resp1 = self.client.get("/schedule", headers=self.planner_headers)
+            resp1 = self.client.get(f"/schedule?project_id={self.project_id}", headers=self.planner_headers)
             self.assertEqual(resp1.status_code, 200)
 
         with patch("backend.auth.security.get_supabase_client", return_value=self.mock_supervisor_supabase):
-            resp2 = self.client.get("/schedule", headers=self.supervisor_headers)
+            resp2 = self.client.get(f"/schedule?project_id={self.project_id}", headers=self.supervisor_headers)
             self.assertEqual(resp2.status_code, 200)
+
+    def test_schedule_without_project_id_returns_422(self):
+        """Schedule is project-scoped; project_id may not be omitted."""
+        with patch("backend.auth.security.get_supabase_client", return_value=self.mock_planner_supabase):
+            response = self.client.get("/schedule", headers=self.planner_headers)
+            self.assertEqual(response.status_code, 422)
 
     def test_reports_without_token_returns_401(self):
         response = self.client.get("/reports")
@@ -70,25 +78,43 @@ class TestProductionHardening(unittest.TestCase):
 
     def test_reports_with_auth_allowed(self):
         with patch("backend.auth.security.get_supabase_client", return_value=self.mock_planner_supabase):
-            response = self.client.get("/reports", headers=self.planner_headers)
+            response = self.client.get(f"/reports?project_id={self.project_id}", headers=self.planner_headers)
             self.assertEqual(response.status_code, 200)
+
+    def test_reports_without_project_id_returns_422(self):
+        """Reports is project-scoped; project_id may not be omitted."""
+        with patch("backend.auth.security.get_supabase_client", return_value=self.mock_planner_supabase):
+            response = self.client.get("/reports", headers=self.planner_headers)
+            self.assertEqual(response.status_code, 422)
 
     def test_matches_without_token_returns_401(self):
         response = self.client.get("/matches")
         self.assertEqual(response.status_code, 401)
 
     def test_matches_with_auth_allowed(self):
+        with patch("backend.auth.security.get_supabase_client", return_value=self.mock_planner_supabase), \
+             patch("backend.routes.match.get_supabase_client", return_value=fake_db()):
+            response = self.client.get(
+                f"/matches?project_id={self.project_id}", headers=self.planner_headers
+            )
+            self.assertEqual(response.status_code, 200)
+
+    def test_matches_without_project_id_returns_422(self):
+        """Read endpoints are project-scoped; project_id may not be omitted."""
         with patch("backend.auth.security.get_supabase_client", return_value=self.mock_planner_supabase):
             response = self.client.get("/matches", headers=self.planner_headers)
-            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.status_code, 422)
 
     def test_unmatched_without_token_returns_401(self):
         response = self.client.get("/unmatched")
         self.assertEqual(response.status_code, 401)
 
     def test_unmatched_with_auth_allowed(self):
-        with patch("backend.auth.security.get_supabase_client", return_value=self.mock_planner_supabase):
-            response = self.client.get("/unmatched", headers=self.planner_headers)
+        with patch("backend.auth.security.get_supabase_client", return_value=self.mock_planner_supabase), \
+             patch("backend.routes.match.get_supabase_client", return_value=fake_db()):
+            response = self.client.get(
+                f"/unmatched?project_id={self.project_id}", headers=self.planner_headers
+            )
             self.assertEqual(response.status_code, 200)
 
     def test_analytics_without_token_returns_401(self):
@@ -96,9 +122,16 @@ class TestProductionHardening(unittest.TestCase):
         self.assertEqual(response.status_code, 401)
 
     def test_analytics_with_auth_allowed(self):
+        with patch("backend.auth.security.get_supabase_client", return_value=self.mock_planner_supabase), \
+             patch("backend.routes.analytics.get_supabase_client", return_value=fake_db()):
+            response = self.client.get(f"/analytics?project_id={self.project_id}", headers=self.planner_headers)
+            self.assertEqual(response.status_code, 200)
+
+    def test_analytics_without_project_id_returns_422(self):
+        """Analytics is project-scoped; project_id may not be omitted."""
         with patch("backend.auth.security.get_supabase_client", return_value=self.mock_planner_supabase):
             response = self.client.get("/analytics", headers=self.planner_headers)
-            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.status_code, 422)
 
     def test_health_remains_public_unauthenticated(self):
         response = self.client.get("/health")

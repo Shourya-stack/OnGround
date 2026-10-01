@@ -1,8 +1,14 @@
 """
 Unit tests for MatchingService, hybrid contextual scoring formula, and dynamic date proximity (F-07).
+
+These are pure unit tests of the scoring/banding logic. Persistence is disabled so
+they never write to a live database — previously the writes were attempted and the
+resulting foreign-key errors were silently swallowed, which hid the fact that these
+tests were talking to a real Supabase project.
 """
 
 import unittest
+from unittest.mock import patch, MagicMock
 from uuid import uuid4
 from datetime import date, datetime
 from backend.services.matching_service import (
@@ -18,6 +24,15 @@ from backend.services.matching_service import (
 
 
 class TestMatchingService(unittest.TestCase):
+    def setUp(self):
+        # Scoring logic under test must not reach the database.
+        patcher = patch(
+            "backend.services.matching_service.get_supabase_client",
+            return_value=None,
+        )
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
     def test_calculate_match_score_identical_discipline(self):
         # Embedding sim = 0.90, extraction confidence = 0.90, date proximity = 1.0, same discipline
         # score = (0.70 * 0.90) + (0.20 * 0.90) + (0.10 * 1.0) - 0.0 = 0.63 + 0.18 + 0.10 = 0.91
@@ -143,9 +158,70 @@ class TestMatchingService(unittest.TestCase):
         # Difference should reflect the ~0.10 date proximity factor contribution
         self.assertAlmostEqual(res_near.confidence_score - res_far.confidence_score, 0.10, places=1)
 
+    def test_reviewed_match_is_not_overwritten(self):
+        """Confirmed/rejected matches are planner decisions and must be immutable."""
+        service = MatchingService()
+        eid = uuid4()
+        plan_id = uuid4()
+        match_id = uuid4()
+
+        supabase = MagicMock()
+        supabase.table.return_value.select.return_value.eq.return_value.in_.return_value.execute.return_value.data = [
+            {
+                "id": str(match_id),
+                "status": "confirmed",
+                "plan_activity_id": str(plan_id),
+                "confidence_score": 0.88,
+            }
+        ]
+
+        # Even with a much stronger new candidate, the confirmed row must win.
+        with patch("backend.services.matching_service.get_supabase_client", return_value=supabase):
+            result = service.match_activity(
+                extracted_activity_id=eid,
+                activity_description="Piping fit-up and spool fabrication area 1",
+                discipline="piping",
+                extraction_confidence=0.95,
+                plan_activities=[
+                    {
+                        "id": str(plan_id),
+                        "activity_code": "PIP-101",
+                        "activity_description": "Piping fit-up and spool fabrication area 1",
+                        "discipline": "piping",
+                    }
+                ],
+            )
+        self.assertEqual(result.status, "confirmed")
+        self.assertEqual(result.match_id, match_id)
+        self.assertEqual(str(result.plan_activity_id), str(plan_id))
+
     def test_matching_service_bands(self):
         service = MatchingService()
         eid = uuid4()
+
+        # The matcher only ever scores real schedule_plan rows, so the baseline is
+        # supplied explicitly. It previously invented four synthetic plan
+        # activities when the schedule was empty, which this test relied on.
+        plan_activities = [
+            {
+                "id": str(uuid4()),
+                "activity_code": "PIP-101",
+                "activity_description": "Piping fit-up and spool fabrication area 1",
+                "discipline": "piping",
+            },
+            {
+                "id": str(uuid4()),
+                "activity_code": "ELE-201",
+                "activity_description": "Cable tray installation and cable pulling substation 2",
+                "discipline": "electrical",
+            },
+            {
+                "id": str(uuid4()),
+                "activity_code": "CIV-301",
+                "activity_description": "Foundation excavation and rebar tying for pump house",
+                "discipline": "civil",
+            },
+        ]
 
         # Highly matching piping description
         result_high = service.match_activity(
@@ -153,6 +229,7 @@ class TestMatchingService(unittest.TestCase):
             activity_description="Piping fit-up and spool fabrication area 1",
             discipline="piping",
             extraction_confidence=0.95,
+            plan_activities=plan_activities,
         )
         self.assertIn(result_high.status, ("auto_linked", "pending_review"))
 
@@ -162,8 +239,54 @@ class TestMatchingService(unittest.TestCase):
             activity_description="Astronomy telescope lens calibration in satellite",
             discipline="unknown",
             extraction_confidence=0.50,
+            plan_activities=plan_activities,
         )
         self.assertEqual(result_low.status, "unmatched")
+
+    def test_empty_baseline_returns_unmatched_without_fabricating(self):
+        """An empty schedule must yield 'unmatched', never invented candidates."""
+        service = MatchingService()
+        result = service.match_activity(
+            extracted_activity_id=uuid4(),
+            activity_description="Piping fit-up and spool fabrication area 1",
+            discipline="piping",
+            extraction_confidence=0.95,
+            plan_activities=[],
+        )
+        self.assertEqual(result.status, "unmatched")
+        self.assertIsNone(result.plan_activity_id)
+        self.assertIsNone(result.match_id)
+
+    def test_malformed_plan_rows_are_skipped(self):
+        """Rows lacking a description or carrying a non-UUID id must not raise."""
+        service = MatchingService()
+        good_id = str(uuid4())
+        plan_activities = [
+            {"id": "plan-01", "activity_description": "Piping fit-up area 1", "discipline": "piping"},
+            {"id": str(uuid4()), "discipline": "piping"},
+            {"id": good_id, "activity_description": "Piping fit-up area 1", "discipline": "piping"},
+        ]
+
+        result = service.match_activity(
+            extracted_activity_id=uuid4(),
+            activity_description="Piping fit-up area 1",
+            discipline="piping",
+            extraction_confidence=0.95,
+            plan_activities=plan_activities,
+        )
+        # Only the well-formed row is considered.
+        if result.plan_activity_id:
+            self.assertEqual(str(result.plan_activity_id), good_id)
+
+    def test_null_discipline_does_not_raise(self):
+        """plan.discipline is nullable in the schema; scoring must tolerate None."""
+        score = calculate_match_score(
+            embedding_sim=0.9,
+            extraction_confidence=0.9,
+            extracted_discipline=None,
+            plan_discipline=None,
+        )
+        self.assertGreater(score, 0.0)
 
     def test_embedding_cache_miss_and_hit(self):
         clear_embedding_cache()

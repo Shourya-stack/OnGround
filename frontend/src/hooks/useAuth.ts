@@ -12,13 +12,18 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   profile: UserProfile | null;
-  role: UserRole;
+  role: UserRole | null;
   isPlanner: boolean;
   isSupervisor: boolean;
   loading: boolean;
-  signIn: (email: string, password?: string, role?: UserRole) => Promise<void>;
+  signIn: (email: string, password?: string) => Promise<void>;
+  signUp: (payload: {
+    email: string;
+    password: string;
+    fullName: string;
+    company?: string;
+  }) => Promise<boolean>;
   signOut: () => Promise<void>;
-  switchRoleForDemo: (newRole: UserRole) => void;
 }
 
 

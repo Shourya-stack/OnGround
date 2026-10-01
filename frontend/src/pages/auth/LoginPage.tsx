@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { Layers, Shield, ShieldAlert, ArrowRight, AlertCircle } from 'lucide-react';
+import { Layers, ArrowRight, AlertCircle } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
-import { UserRole } from '../../lib/types';
 import { ThemeToggle } from '../../components/common/ThemeToggle';
 
 export const LoginPage: React.FC = () => {
@@ -11,9 +10,8 @@ export const LoginPage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const isExpired = searchParams.get('expired') === 'true';
 
-  const [email, setEmail] = useState('demo_planner@onground.dev');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [selectedRole, setSelectedRole] = useState<UserRole>('planner');
   const [loading, setLoading] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
 
@@ -23,7 +21,7 @@ export const LoginPage: React.FC = () => {
     setLoading(true);
 
     try {
-      await signIn(email, password, selectedRole);
+      await signIn(email, password);
       navigate('/dashboard');
     } catch (err: any) {
       const msg = err?.message || 'Authentication failed. Please check your credentials.';
@@ -97,39 +95,6 @@ export const LoginPage: React.FC = () => {
           </div>
         )}
 
-        {/* Demo Account Role Picker */}
-        <div style={{ marginBottom: '20px' }}>
-          <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '8px' }}>
-            Demo Account Persona
-          </label>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-            <button
-              type="button"
-              className={`role-btn ${selectedRole === 'planner' ? 'active planner' : ''}`}
-              style={{ justifyContent: 'center', padding: '10px', height: 'auto' }}
-              onClick={() => {
-                setSelectedRole('planner');
-                setEmail('demo_planner@onground.dev');
-              }}
-            >
-              <Shield size={16} />
-              <span style={{ fontSize: '12px' }}>Project Planner</span>
-            </button>
-            <button
-              type="button"
-              className={`role-btn ${selectedRole === 'supervisor' ? 'active supervisor' : ''}`}
-              style={{ justifyContent: 'center', padding: '10px', height: 'auto' }}
-              onClick={() => {
-                setSelectedRole('supervisor');
-                setEmail('supervisor@onground.com');
-              }}
-            >
-              <ShieldAlert size={16} />
-              <span style={{ fontSize: '12px' }}>Site Supervisor</span>
-            </button>
-          </div>
-        </div>
-
         {/* Form */}
         <form onSubmit={handleLogin}>
           <div className="form-group">
@@ -139,6 +104,7 @@ export const LoginPage: React.FC = () => {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
+              autoComplete="email"
               className="form-input"
             />
           </div>
@@ -156,6 +122,7 @@ export const LoginPage: React.FC = () => {
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Enter password"
               required
+              autoComplete="current-password"
               className="form-input"
             />
           </div>
@@ -166,7 +133,7 @@ export const LoginPage: React.FC = () => {
             className="btn btn-primary"
             style={{ width: '100%', marginTop: '8px', padding: '12px', opacity: loading ? 0.7 : 1, cursor: loading ? 'not-allowed' : 'pointer' }}
           >
-            {loading ? 'Signing in...' : `Sign In as ${selectedRole === 'planner' ? 'Planner' : 'Supervisor'}`} <ArrowRight size={16} />
+            {loading ? 'Signing in...' : 'Sign In'} <ArrowRight size={16} />
           </button>
         </form>
 

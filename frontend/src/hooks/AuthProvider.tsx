@@ -13,7 +13,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [role, setRole] = useState<UserRole>('planner'); // Default to planner for smooth initial demo experience
+  const [role, setRole] = useState<UserRole | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
@@ -43,6 +43,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (session?.user) {
         fetchProfile(session.user.id);
       } else {
+        setRole(null);
         setLoading(false);
       }
     });
@@ -55,6 +56,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         fetchProfile(session.user.id);
       } else {
         setProfile(null);
+        setRole(null);
         setLoading(false);
       }
     });
@@ -73,20 +75,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .eq('id', userId)
         .single();
 
-      if (data && !error) {
+      if (error) {
+        console.error('Could not fetch user profile from Supabase:', error);
+        setRole(null);
+      } else if (data) {
         setProfile(data as UserProfile);
-        if (data.role === 'planner' || data.role === 'supervisor') {
-          setRole(data.role as UserRole);
+        const profileRole = data.role as UserRole;
+        if (['planner', 'supervisor', 'manager', 'engineer'].includes(profileRole)) {
+          setRole(profileRole);
+        } else {
+          setRole(null);
         }
       }
     } catch (err) {
-      console.warn('Could not fetch user profile from Supabase:', err);
+      console.error('Could not fetch user profile from Supabase:', err);
+      setRole(null);
     } finally {
       setLoading(false);
     }
   }
 
-  const signIn = async (email: string, password = '', _selectedRole: UserRole = 'planner') => {
+  const signIn = async (email: string, password = '') => {
     setLoading(true);
     try {
       const trimmedEmail = email.trim();
@@ -109,19 +118,47 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const signUp = async (payload: {
+    email: string;
+    password: string;
+    fullName: string;
+    company?: string;
+  }) => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email: payload.email.trim(),
+        password: payload.password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/verify-email`,
+          data: {
+            full_name: payload.fullName,
+            company: payload.company,
+          },
+        },
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      if (data.session) {
+        setSession(data.session);
+        setUser(data.user);
+        await fetchProfile(data.session.user.id);
+      }
+      return Boolean(data.session);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const signOut = async () => {
     await supabase.auth.signOut();
     setUser(null);
     setSession(null);
     setProfile(null);
-  };
-
-  const switchRoleForDemo = (newRole: UserRole) => {
-    setRole(newRole);
-    localStorage.setItem('onground_demo_role', newRole);
-    if (profile) {
-      setProfile({ ...profile, role: newRole });
-    }
+    setRole(null);
   };
 
 
@@ -136,8 +173,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isSupervisor: role === 'supervisor',
         loading,
         signIn,
+        signUp,
         signOut,
-        switchRoleForDemo,
       }}
     >
       {children}

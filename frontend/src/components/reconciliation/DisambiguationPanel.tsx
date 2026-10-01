@@ -4,7 +4,8 @@ import { CandidateList } from './CandidateList';
 import { AlertTriangle, CheckCircle, Shield, Search, X } from 'lucide-react';
 import { ConfidenceBadge } from '../common/ConfidenceBadge';
 import { useAuth } from '../../hooks/useAuth';
-import { apiService } from '../../api/apiService';
+import { useParams } from 'react-router-dom';
+import { apiClient } from '../../lib/apiClient';
 
 interface DisambiguationPanelProps {
   match: ScheduleMatch;
@@ -20,6 +21,8 @@ export const DisambiguationPanel: React.FC<DisambiguationPanelProps> = ({
   onReject,
 }) => {
   const { isPlanner } = useAuth();
+  const { id: routeProjectId } = useParams<{ id: string }>();
+  const projectId = routeProjectId || match.schedule_plan?.project_id || '';
   const [selectedCandidate, setSelectedCandidate] = useState<CandidateMatch | null>(null);
   const [showFullSchedule, setShowFullSchedule] = useState(false);
   const [allSchedule, setAllSchedule] = useState<SchedulePlanItem[]>([]);
@@ -30,7 +33,7 @@ export const DisambiguationPanel: React.FC<DisambiguationPanelProps> = ({
   useEffect(() => {
     const loadSchedule = async () => {
       try {
-        const data = await apiService.getSchedule();
+        const data = await apiClient.getSchedule({ project_id: projectId });
         setAllSchedule(data);
       } catch (e) {
         console.error('Failed to load schedule in disambiguation', e);

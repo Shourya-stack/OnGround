@@ -12,6 +12,7 @@ from fastapi.testclient import TestClient
 from backend.main import app
 from backend.models.schemas import ExtractedActivityCreate
 from backend.auth.rate_limiter import limiter
+from backend.tests.helpers import fake_db
 
 
 class TestP2SecurityHardening(unittest.TestCase):
@@ -20,6 +21,7 @@ class TestP2SecurityHardening(unittest.TestCase):
         limiter.reset()
         self.planner_id = uuid4()
         self.supervisor_id = uuid4()
+        self.project_id = uuid4()
         self.planner_headers = {"Authorization": "Bearer valid.planner.jwt"}
         self.supervisor_headers = {"Authorization": "Bearer valid.supervisor.jwt"}
 
@@ -224,23 +226,32 @@ class TestP2SecurityHardening(unittest.TestCase):
             response = self.client.get("/audit", headers={"Authorization": "Bearer invalid.token"})
             self.assertEqual(response.status_code, 401)
 
-    def test_get_audit_with_planner_token_allowed(self):
+    def test_get_audit_without_project_id_returns_422(self):
+        """Audit is project-scoped; project_id may not be omitted."""
         with patch("backend.auth.security.get_supabase_client", return_value=self.mock_planner_supabase):
             response = self.client.get("/audit", headers=self.planner_headers)
+            self.assertEqual(response.status_code, 422)
+
+    def test_get_audit_with_planner_token_allowed(self):
+        with patch("backend.auth.security.get_supabase_client", return_value=self.mock_planner_supabase), \
+             patch("backend.routes.audit.get_supabase_client", return_value=fake_db()):
+            response = self.client.get(f"/audit?project_id={self.project_id}", headers=self.planner_headers)
             self.assertEqual(response.status_code, 200)
             self.assertIsInstance(response.json(), list)
 
     def test_get_audit_with_supervisor_token_allowed(self):
-        with patch("backend.auth.security.get_supabase_client", return_value=self.mock_supervisor_supabase):
-            response = self.client.get("/audit", headers=self.supervisor_headers)
+        with patch("backend.auth.security.get_supabase_client", return_value=self.mock_supervisor_supabase), \
+             patch("backend.routes.audit.get_supabase_client", return_value=fake_db()):
+            response = self.client.get(f"/audit?project_id={self.project_id}", headers=self.supervisor_headers)
             self.assertEqual(response.status_code, 200)
             self.assertIsInstance(response.json(), list)
 
     def test_get_audit_preserves_query_filters(self):
         actor_id = uuid4()
-        with patch("backend.auth.security.get_supabase_client", return_value=self.mock_planner_supabase):
+        with patch("backend.auth.security.get_supabase_client", return_value=self.mock_planner_supabase), \
+             patch("backend.routes.audit.get_supabase_client", return_value=fake_db()):
             response = self.client.get(
-                f"/audit?action=confirmed&actor={actor_id}&limit=10&offset=5",
+                f"/audit?project_id={self.project_id}&action=confirmed&actor={actor_id}&limit=10&offset=5",
                 headers=self.planner_headers,
             )
             self.assertEqual(response.status_code, 200)
@@ -249,13 +260,38 @@ class TestP2SecurityHardening(unittest.TestCase):
     # F-06: Extraction Failure Recovery & Status Transition Tests
     # =========================================================================
 
+    def _assert_status_update(self, mock_table, expected_status):
+        """
+        Assert some `update()` call carried the expected status.
+
+        Status updates now also carry `error_message`, so an exact-dict
+        assert_any_call no longer expresses the intent.
+        """
+        seen = []
+        for call in mock_table.update.call_args_list:
+            payload = call.args[0] if call.args else {}
+            if isinstance(payload, dict):
+                seen.append(payload.get("status"))
+        self.assertIn(
+            expected_status,
+            seen,
+            f"No update() call set status={expected_status!r}; saw {seen!r}",
+        )
+
     def test_extraction_service_failure_marks_status_failed(self):
         extraction_id = uuid4()
+        project_id = uuid4()
         mock_supabase = MagicMock()
         mock_extractions = MagicMock()
         # Record exists
         mock_extractions.select.return_value.eq.return_value.execute.return_value.data = [
-            {"id": str(extraction_id), "status": "pending", "file_url": "reports/report.txt"}
+            {
+                "id": str(extraction_id),
+                "project_id": str(project_id),
+                "uploaded_by": str(self.planner_id),
+                "status": "pending",
+                "file_url": "reports/report.txt",
+            }
         ]
         mock_supabase.table.return_value = mock_extractions
 
@@ -269,14 +305,20 @@ class TestP2SecurityHardening(unittest.TestCase):
                     )
                     self.assertEqual(response.status_code, 500)
                     # Verify status was updated to 'failed'
-                    mock_extractions.update.assert_any_call({"status": "failed"})
+                    self._assert_status_update(mock_extractions, "failed")
 
     def test_extraction_db_insert_failure_marks_status_failed(self):
         extraction_id = uuid4()
+        project_id = uuid4()
         mock_supabase = MagicMock()
         mock_extractions = MagicMock()
         mock_extractions.select.return_value.eq.return_value.execute.return_value.data = [
-            {"id": str(extraction_id), "status": "pending"}
+            {
+                "id": str(extraction_id),
+                "project_id": str(project_id),
+                "uploaded_by": str(self.planner_id),
+                "status": "pending",
+            }
         ]
 
         mock_activities = MagicMock()
@@ -299,7 +341,7 @@ class TestP2SecurityHardening(unittest.TestCase):
                     json={"raw_text": "Civil excavation complete (08:00 to 16:00). Discipline: Civil."},
                 )
                 self.assertEqual(response.status_code, 500)
-                mock_extractions.update.assert_any_call({"status": "failed"})
+                self._assert_status_update(mock_extractions, "failed")
 
     def test_extraction_missing_record_returns_404_without_updating_failed(self):
         extraction_id = uuid4()
@@ -319,12 +361,41 @@ class TestP2SecurityHardening(unittest.TestCase):
                 self.assertEqual(response.status_code, 404)
                 mock_extractions.update.assert_not_called()
 
-    def test_extraction_success_marks_complete(self):
+    def test_extraction_without_project_id_is_data_integrity_error(self):
+        """
+        project_id is NOT NULL in the schema. A record missing it is corrupt data
+        and must surface as 500, not be silently treated as accessible.
+        """
         extraction_id = uuid4()
         mock_supabase = MagicMock()
         mock_extractions = MagicMock()
         mock_extractions.select.return_value.eq.return_value.execute.return_value.data = [
             {"id": str(extraction_id), "status": "pending"}
+        ]
+        mock_supabase.table.return_value = mock_extractions
+
+        with patch("backend.auth.security.get_supabase_client", return_value=self.mock_planner_supabase):
+            with patch("backend.routes.extract.get_supabase_client", return_value=mock_supabase):
+                response = self.client.post(
+                    f"/extract/{extraction_id}",
+                    headers=self.planner_headers,
+                    json={"raw_text": "sample text"},
+                )
+                self.assertEqual(response.status_code, 500)
+                self.assertIn("project", response.json()["detail"].lower())
+
+    def test_extraction_success_marks_complete(self):
+        extraction_id = uuid4()
+        project_id = uuid4()
+        mock_supabase = MagicMock()
+        mock_extractions = MagicMock()
+        mock_extractions.select.return_value.eq.return_value.execute.return_value.data = [
+            {
+                "id": str(extraction_id),
+                "project_id": str(project_id),
+                "uploaded_by": str(self.planner_id),
+                "status": "pending",
+            }
         ]
         mock_activities = MagicMock()
         mock_activities.insert.return_value.execute.return_value.data = [
@@ -358,8 +429,8 @@ class TestP2SecurityHardening(unittest.TestCase):
                             json={"raw_text": "Fit-up of 12-inch pipe in Unit 200 (08:00 to 14:00). Discipline: Piping."},
                         )
                         self.assertEqual(response.status_code, 200)
-                        mock_extractions.update.assert_any_call({"status": "processing"})
-                        mock_extractions.update.assert_any_call({"status": "complete"})
+                        self._assert_status_update(mock_extractions, "processing")
+                        self._assert_status_update(mock_extractions, "complete")
 
 
 if __name__ == "__main__":

@@ -81,7 +81,7 @@ export const PricingPage: React.FC = () => {
       >
         <Info size={18} style={{ flexShrink: 0 }} />
         <span>
-          <strong>Phase 1 Demonstration:</strong> Subscription management and payment processing are deferred to future phases. All tiers currently demonstrate the interactive frontend workflow with mock data.
+          <strong>Billing notice:</strong> Subscription management and payment processing are not currently available. Pricing tiers are informational; access is managed through authenticated project roles.
         </span>
       </div>
 

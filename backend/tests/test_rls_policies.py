@@ -93,9 +93,19 @@ class TestSecurityHardeningPhase92(unittest.TestCase):
 
     def test_project_access_helper_logic(self):
         """Test the multi-tenant project authorization helper function."""
-        # 1. Default demo project is always accessible to all users
-        self.assertTrue(verify_user_project_access(self.planner_id, self.default_project_id))
-        self.assertTrue(verify_user_project_access(self.supervisor_id, self.default_project_id))
+        # 1. There is NO sentinel/default-project bypass. The previous revision
+        #    returned True for 00000000-...-0001 for every authenticated user,
+        #    which silently defeated multi-tenant isolation. Access to the legacy
+        #    project now requires a real membership row like any other project.
+        mock_no_membership = MagicMock()
+        mock_no_membership.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value.data = []
+        with patch("backend.auth.security.get_supabase_client", return_value=mock_no_membership):
+            self.assertFalse(
+                verify_user_project_access(self.planner_id, self.default_project_id)
+            )
+            self.assertFalse(
+                verify_user_project_access(self.supervisor_id, self.default_project_id)
+            )
 
         # 2. Custom project with membership
         mock_db = MagicMock()
@@ -111,6 +121,15 @@ class TestSecurityHardeningPhase92(unittest.TestCase):
         with patch("backend.auth.security.get_supabase_client", return_value=mock_empty_db):
             self.assertFalse(verify_user_project_access(self.planner_id, self.foreign_project_id))
 
+        # 4. A missing project_id is never implicitly allowed.
+        self.assertFalse(verify_user_project_access(self.planner_id, None))
+
+        # 5. Database unavailable must deny, not fall open.
+        with patch("backend.auth.security.get_supabase_client", return_value=None):
+            self.assertFalse(
+                verify_user_project_access(self.planner_id, self.custom_project_id)
+            )
+
     # =========================================================================
     # 2. SEC-03: Confirm / Reject Project Authorization Tests
     # =========================================================================
@@ -125,7 +144,9 @@ class TestSecurityHardeningPhase92(unittest.TestCase):
         mock_matches.select.return_value.eq.return_value.execute.return_value.data = [
             {"id": str(match_id), "plan_activity_id": str(plan_id), "status": "pending_review"}
         ]
-        mock_matches.update.return_value.eq.return_value.execute.return_value = MagicMock()
+        mock_matches.update.return_value.eq.return_value.execute.return_value.data = [
+            {"id": str(match_id), "status": "confirmed"}
+        ]
 
         mock_plan = MagicMock()
         mock_plan.select.return_value.eq.return_value.execute.return_value.data = [
@@ -151,7 +172,8 @@ class TestSecurityHardeningPhase92(unittest.TestCase):
 
         with patch("backend.auth.security.get_supabase_client", return_value=mock_supabase), \
              patch("backend.routes.review.get_supabase_client", return_value=mock_supabase), \
-             patch("backend.routes.review.verify_user_project_access", return_value=True):
+             patch("backend.auth.security.verify_user_project_access", return_value=True), \
+             patch("backend.auth.security.get_user_project_role", return_value="planner"):
 
             response = self.client.post(f"/match/{match_id}/confirm", headers=self.planner_headers)
             self.assertEqual(response.status_code, 200)
@@ -192,7 +214,7 @@ class TestSecurityHardeningPhase92(unittest.TestCase):
 
         with patch("backend.auth.security.get_supabase_client", return_value=mock_supabase), \
              patch("backend.routes.review.get_supabase_client", return_value=mock_supabase), \
-             patch("backend.routes.review.verify_user_project_access", return_value=False):
+             patch("backend.auth.security.verify_user_project_access", return_value=False):
 
             response = self.client.post(f"/match/{match_id}/confirm", headers=self.planner_headers)
             self.assertEqual(response.status_code, 403)
@@ -232,7 +254,7 @@ class TestSecurityHardeningPhase92(unittest.TestCase):
 
         with patch("backend.auth.security.get_supabase_client", return_value=mock_supabase), \
              patch("backend.routes.review.get_supabase_client", return_value=mock_supabase), \
-             patch("backend.routes.review.verify_user_project_access", return_value=False):
+             patch("backend.auth.security.verify_user_project_access", return_value=False):
 
             response = self.client.post(f"/match/{match_id}/reject", headers=self.planner_headers)
             self.assertEqual(response.status_code, 403)

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
 import {
   Search,
   Link2,
@@ -15,6 +16,8 @@ import { Toast, ToastMessage } from '../../components/common/Toast';
 import { Modal } from '../../components/ui/Modal';
 
 export const ProjectUnmatchedPage: React.FC = () => {
+  const { id } = useParams<{ id: string }>();
+  const projectId = id || '';
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [unmatched, setUnmatched] = useState<UnmatchedActivity[]>([]);
@@ -29,8 +32,8 @@ export const ProjectUnmatchedPage: React.FC = () => {
     setError(null);
     try {
       const [unData, schedData] = await Promise.all([
-        apiClient.getUnmatched(),
-        apiClient.getSchedule(),
+        apiClient.getUnmatched({ project_id: projectId }),
+        apiClient.getSchedule({ project_id: projectId }),
       ]);
       setUnmatched(unData || []);
       setSchedule(schedData || []);
@@ -44,20 +47,32 @@ export const ProjectUnmatchedPage: React.FC = () => {
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [projectId]);
 
   const handleManualLinkClick = (record: UnmatchedActivity) => {
     setLinkingTarget(record);
   };
 
-  const handleAttemptLink = (_targetPlanId: string) => {
-    setToast({
-      id: Date.now().toString(),
-      type: 'info',
-      title: 'Action Not Available',
-      message: 'Unmatched activity resolution mutation is not supported by the Phase 1 backend API (read-only pool).',
-    });
-    setLinkingTarget(null);
+  const handleAttemptLink = async (targetPlanId: string) => {
+    if (!linkingTarget) return;
+    try {
+      await apiClient.resolveUnmatched(linkingTarget.id, targetPlanId);
+      setToast({
+        id: Date.now().toString(),
+        type: 'success',
+        title: 'Activity Linked',
+        message: 'The unmatched activity was linked to the selected schedule item.',
+      });
+      setLinkingTarget(null);
+      await loadData();
+    } catch (err: any) {
+      setToast({
+        id: Date.now().toString(),
+        type: 'error',
+        title: 'Could Not Link Activity',
+        message: formatApiErrorMessage(err),
+      });
+    }
   };
 
   const filtered = unmatched.filter((u) => {
@@ -245,7 +260,7 @@ export const ProjectUnmatchedPage: React.FC = () => {
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px', borderRadius: 'var(--radius-sm)', backgroundColor: 'rgba(59, 130, 246, 0.08)', border: '1px solid rgba(59, 130, 246, 0.2)', fontSize: '12px', color: 'var(--text-secondary)' }}>
               <Info size={15} style={{ color: 'var(--accent-blue)', flexShrink: 0 }} />
               <span>
-                Baseline schedule activities available for reference. Unmatched activity mutation endpoint is not active in Phase 1 API.
+                Baseline schedule activities available for reference. Selecting one will link this field activity and record a project audit event.
               </span>
             </div>
 

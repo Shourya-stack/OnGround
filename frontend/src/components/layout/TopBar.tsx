@@ -1,10 +1,10 @@
 import React from 'react';
 import { useAuth } from '../../hooks/useAuth';
-import { Shield, ShieldAlert, User, LogOut } from 'lucide-react';
+import { User, LogOut } from 'lucide-react';
 
 
 export const TopBar: React.FC = () => {
-  const { role, profile, switchRoleForDemo, signOut } = useAuth();
+  const { role, profile, signOut } = useAuth();
 
   return (
     <header className="topbar">
@@ -16,37 +16,14 @@ export const TopBar: React.FC = () => {
       </div>
 
       <div className="topbar-right">
-        {/* Demo Role Switcher */}
-        <div className="demo-role-switcher" title="Demo Switcher: Toggle between Planner & Supervisor roles">
-          <span className="role-switcher-label">DEMO ROLE:</span>
-          <div className="role-buttons">
-            <button
-              type="button"
-              className={`role-btn ${role === 'planner' ? 'active planner' : ''}`}
-              onClick={() => switchRoleForDemo('planner')}
-            >
-              <Shield size={14} />
-              <span>Planner</span>
-            </button>
-            <button
-              type="button"
-              className={`role-btn ${role === 'supervisor' ? 'active supervisor' : ''}`}
-              onClick={() => switchRoleForDemo('supervisor')}
-            >
-              <ShieldAlert size={14} />
-              <span>Supervisor</span>
-            </button>
-          </div>
-        </div>
-
         {/* User indicator */}
         <div className="user-profile-badge">
           <div className="user-avatar">
             <User size={16} />
           </div>
           <div className="user-info">
-            <span className="user-name">{profile?.full_name || 'Shourya (Lead)'}</span>
-            <span className={`user-role-tag ${role}`}>{role.toUpperCase()}</span>
+            <span className="user-name">{profile?.full_name || 'User'}</span>
+            <span className={`user-role-tag ${role || ''}`}>{(role || '').toUpperCase()}</span>
           </div>
         </div>
 

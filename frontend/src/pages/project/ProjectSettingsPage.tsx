@@ -2,24 +2,21 @@ import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import {
   Save,
-  RotateCcw,
   AlertCircle,
 } from 'lucide-react';
-import { apiService } from '../../api/apiService';
+import { apiClient } from '../../lib/apiClient';
 import { Project } from '../../lib/types';
 import { LoadingSkeleton } from '../../components/common/LoadingSkeleton';
 import { Toast, ToastMessage } from '../../components/common/Toast';
-import { ConfirmationDialog } from '../../components/ui/ConfirmationDialog';
 
 export const ProjectSettingsPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const projectId = id || 'proj-01';
+  const projectId = id || '';
 
   const [loading, setLoading] = useState(true);
   const [project, setProject] = useState<Project | null>(null);
-  const [activeTab, setActiveTab] = useState<'general' | 'matching' | 'reports' | 'danger'>('general');
+  const [activeTab, setActiveTab] = useState<'general' | 'matching' | 'reports'>('general');
   const [toast, setToast] = useState<ToastMessage | null>(null);
-  const [dangerModalOpen, setDangerModalOpen] = useState(false);
 
   // General settings controlled state
   const [projectName, setProjectName] = useState('');
@@ -42,7 +39,7 @@ export const ProjectSettingsPage: React.FC = () => {
     const loadProject = async () => {
       setLoading(true);
       try {
-        const p = await apiService.getProjectById(projectId);
+        const p = await apiClient.getProjectById(projectId);
         if (p) {
           setProject(p);
           setProjectName(p.name || '');
@@ -94,7 +91,7 @@ export const ProjectSettingsPage: React.FC = () => {
     }
 
     try {
-      const updated = await apiService.updateProject(projectId, {
+      const updated = await apiClient.updateProject(projectId, {
         name: projectName.trim(),
         code: wbsCode.trim(),
         client: client.trim(),
@@ -150,18 +147,6 @@ export const ProjectSettingsPage: React.FC = () => {
     });
   };
 
-  const handleResetDemoData = () => {
-    apiService.resetMockData();
-    setDangerModalOpen(false);
-    setToast({
-      id: Date.now().toString(),
-      type: 'info',
-      title: 'Demo Data Reset',
-      message: 'Restored verified sample baseline schedule and demo reports.',
-    });
-    setTimeout(() => window.location.reload(), 1000);
-  };
-
   if (loading) {
     return <LoadingSkeleton rows={4} height="60px" />;
   }
@@ -184,7 +169,6 @@ export const ProjectSettingsPage: React.FC = () => {
           { id: 'general', label: 'General Parameters' },
           { id: 'matching', label: 'Matching Thresholds' },
           { id: 'reports', label: 'Ingestion Rules' },
-          { id: 'danger', label: 'Danger Zone' },
         ].map((t) => (
           <button
             key={t.id}
@@ -415,36 +399,7 @@ export const ProjectSettingsPage: React.FC = () => {
           </form>
         )}
 
-        {activeTab === 'danger' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            <div style={{ padding: '20px', borderRadius: 'var(--radius-md)', backgroundColor: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)' }}>
-              <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#ef4444', marginBottom: '8px' }}>
-                Reset Prototype Demo Data
-              </h3>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '13px', lineHeight: 1.5, marginBottom: '16px' }}>
-                Restores the verified 21 Primavera P6 baseline activities from <code>data/baseline_schedule.csv</code>, resets confirmed links, and clears temporary uploads.
-              </p>
-              <button
-                type="button"
-                className="btn btn-danger"
-                onClick={() => setDangerModalOpen(true)}
-              >
-                <RotateCcw size={16} /> Reset Sample Data
-              </button>
-            </div>
-          </div>
-        )}
       </div>
-
-      {/* Confirmation Dialog */}
-      <ConfirmationDialog
-        isOpen={dangerModalOpen}
-        onClose={() => setDangerModalOpen(false)}
-        onConfirm={handleResetDemoData}
-        title="Reset Demo Prototype State?"
-        message="This will reset all modified matches, newly uploaded reports, and restore the initial verified baseline data. Are you sure you want to proceed?"
-        confirmLabel="Yes, Reset Prototype"
-      />
 
       <Toast toast={toast} onClose={() => setToast(null)} />
     </div>

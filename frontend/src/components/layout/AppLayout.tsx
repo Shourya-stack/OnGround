@@ -8,8 +8,6 @@ import {
   ArrowLeft,
   Bell,
   Search,
-  Shield,
-  ShieldAlert,
   User,
   LogOut,
   Menu,
@@ -24,7 +22,7 @@ import { ThemeToggle } from '../common/ThemeToggle';
 export const AppLayout: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { role, profile, switchRoleForDemo, signOut } = useAuth();
+  const { role, profile, signOut } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const [showAiCard, setShowAiCard] = useState(true);
@@ -270,29 +268,6 @@ export const AppLayout: React.FC = () => {
           </div>
 
           <div className="topbar-right" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            {/* Demo Role Switcher */}
-            <div className="demo-role-switcher" title="Toggle Planner vs Supervisor role">
-              <span className="role-switcher-label" style={{ fontSize: '11px', color: 'var(--text-muted)' }}>ROLE:</span>
-              <div className="role-buttons">
-                <button
-                  type="button"
-                  className={`role-btn ${role === 'planner' ? 'active planner' : ''}`}
-                  onClick={() => switchRoleForDemo('planner')}
-                >
-                  <Shield size={13} />
-                  <span>Planner</span>
-                </button>
-                <button
-                  type="button"
-                  className={`role-btn ${role === 'supervisor' ? 'active supervisor' : ''}`}
-                  onClick={() => switchRoleForDemo('supervisor')}
-                >
-                  <ShieldAlert size={13} />
-                  <span>Supervisor</span>
-                </button>
-              </div>
-            </div>
-
             {/* Notification Bell */}
             <button
               type="button"
@@ -354,8 +329,8 @@ export const AppLayout: React.FC = () => {
                 <User size={15} />
               </div>
               <div className="user-info">
-                <span className="user-name" style={{ fontSize: '12px' }}>{profile?.full_name || 'Admin'}</span>
-                <span className={`user-role-tag ${role}`}>{role.toUpperCase()}</span>
+                <span className="user-name" style={{ fontSize: '12px' }}>{profile?.full_name || 'User'}</span>
+                <span className={`user-role-tag ${role || ''}`}>{(role || '').toUpperCase()}</span>
               </div>
             </div>
 

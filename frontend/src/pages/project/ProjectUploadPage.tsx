@@ -9,7 +9,7 @@ import { ArrowLeft, Cpu } from 'lucide-react';
 
 export const ProjectUploadPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const projectId = id || 'proj-01';
+  const projectId = id || '';
 
   const [pipelineStep, setPipelineStep] = useState<PipelineStep>('idle');
   const [currentFileName, setCurrentFileName] = useState('');
@@ -25,7 +25,7 @@ export const ProjectUploadPage: React.FC = () => {
 
     try {
       // 1. Upload report file to backend / Supabase Storage
-      const uploadRes = await apiClient.uploadReport(file);
+      const uploadRes = await apiClient.uploadReport(file, projectId);
       const extractionId = uploadRes.extraction_id;
 
       // 2. Trigger AI extraction pipeline

@@ -6,7 +6,7 @@ import {
   X,
   CheckCircle2,
 } from 'lucide-react';
-import { apiService } from '../../api/apiService';
+import { apiClient } from '../../lib/apiClient';
 import { ScheduleMatch, CandidateMatch } from '../../lib/types';
 import { LoadingSkeleton } from '../../components/common/LoadingSkeleton';
 import { EmptyState } from '../../components/common/EmptyState';
@@ -18,7 +18,7 @@ import { TraceabilityModal } from '../../components/traceability/TraceabilityMod
 
 export const ProjectReconciliationPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const projectId = id || 'proj-01';
+  const projectId = id || '';
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -33,7 +33,7 @@ export const ProjectReconciliationPage: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const data = await apiService.getMatches(projectId);
+      const data = await apiClient.getMatches({ project_id: projectId });
       setMatches(data);
     } catch (err: any) {
       console.error('Failed to load matches', err);
@@ -49,7 +49,7 @@ export const ProjectReconciliationPage: React.FC = () => {
 
   const handleConfirm = async (matchId: string) => {
     try {
-      await apiService.confirmMatch(matchId);
+      await apiClient.confirmMatch(matchId);
       setToast({
         id: Date.now().toString(),
         type: 'success',
@@ -69,7 +69,7 @@ export const ProjectReconciliationPage: React.FC = () => {
 
   const handleReject = async (matchId: string) => {
     try {
-      await apiService.rejectMatch(matchId);
+      await apiClient.rejectMatch(matchId);
       setToast({
         id: Date.now().toString(),
         type: 'info',
@@ -89,7 +89,7 @@ export const ProjectReconciliationPage: React.FC = () => {
 
   const handleConfirmAlternative = async (matchId: string, candidate: CandidateMatch) => {
     try {
-      await apiService.reassignMatch(matchId, candidate);
+      await apiClient.reassignMatch(matchId, candidate.plan_activity_id);
       setToast({
         id: Date.now().toString(),
         type: 'success',

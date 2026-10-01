@@ -1,14 +1,19 @@
 """
-Review routes: POST /match/{id}/confirm and POST /match/{id}/reject
-Implements Planner-only role authorization, updates SCHEDULE_MATCHES status,
-moves rejected items to UNMATCHED_ACTIVITIES, and appends to AUDIT_TRAIL.
+Review routes: confirm / reject / reassign a schedule match.
+
+Planner-only, project-scoped. Rejected matches are genuinely moved into
+UNMATCHED_ACTIVITIES (the previous implementation documented this but never did
+it), and every failed write surfaces as an error instead of being logged and
+followed by HTTP 200.
 """
 
 import logging
 from uuid import UUID, uuid4
 from datetime import datetime, timezone
-from typing import Optional
-from fastapi import APIRouter, HTTPException, Header, Depends, status
+from typing import Any, Dict, Optional
+
+from fastapi import APIRouter, HTTPException, Depends, status
+
 from backend.models.schemas import (
     ConfirmResponse,
     RejectRequest,
@@ -18,38 +23,94 @@ from backend.models.schemas import (
     CurrentUser,
 )
 from backend.db.supabase_client import get_supabase_client
+from backend.db.errors import PersistenceError, execute_read, execute_write
 from backend.services.audit_service import log_action
-from backend.auth.security import require_planner_role, verify_user_project_access
+from backend.auth.security import require_planner_role, require_project_planner
 
 router = APIRouter(prefix="", tags=["Review"])
 logger = logging.getLogger("onground.review")
 
 
-def _get_match_project_id(supabase, match_data: dict) -> Optional[str]:
-    """Helper to resolve project_id associated with a schedule_match."""
+def _require_supabase():
+    supabase = get_supabase_client()
+    if not supabase:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Database is not configured.",
+        )
+    return supabase
+
+
+def _load_match(supabase, match_id: UUID) -> Dict[str, Any]:
+    """Load a schedule match or raise 404. Read failures raise 500, never pass through."""
+    try:
+        rows = execute_read(
+            supabase.table("schedule_matches").select("*").eq("id", str(match_id)),
+            table="schedule_matches",
+            operation="review.load_match",
+        )
+    except PersistenceError as exc:
+        logger.error("Error loading schedule match %s: %s", match_id, exc)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=exc.public_detail,
+        ) from exc
+
+    if not rows:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Schedule match '{match_id}' not found",
+        )
+    return rows[0]
+
+
+def _resolve_match_project_id(supabase, match_data: Dict[str, Any]) -> UUID:
+    """
+    Resolve the project owning a match, via schedule_plan or via the extraction.
+
+    Raises 500 when it cannot be determined. Returning None here previously caused
+    the authorization check to be skipped entirely (`if project_id and not ...`),
+    so an unresolvable project silently granted access.
+    """
     plan_act_id = match_data.get("plan_activity_id")
     if plan_act_id:
         try:
-            p_res = supabase.table("schedule_plan").select("project_id").eq("id", str(plan_act_id)).execute()
-            if p_res.data and len(p_res.data) > 0:
-                return p_res.data[0].get("project_id")
-        except Exception as e:
-            logger.warning(f"Could not resolve project_id via schedule_plan: {e}")
+            rows = execute_read(
+                supabase.table("schedule_plan").select("project_id").eq("id", str(plan_act_id)),
+                table="schedule_plan",
+                operation="review.resolve_project_via_plan",
+            )
+            if rows and rows[0].get("project_id"):
+                return UUID(str(rows[0]["project_id"]))
+        except PersistenceError as exc:
+            logger.warning("Could not resolve project via schedule_plan: %s", exc)
 
     ext_act_id = match_data.get("extracted_activity_id")
     if ext_act_id:
         try:
-            act_res = supabase.table("extracted_activities").select("extraction_id").eq("id", str(ext_act_id)).execute()
-            if act_res.data and len(act_res.data) > 0:
-                ext_id = act_res.data[0].get("extraction_id")
-                if ext_id:
-                    ext_res = supabase.table("extractions").select("project_id").eq("id", str(ext_id)).execute()
-                    if ext_res.data and len(ext_res.data) > 0:
-                        return ext_res.data[0].get("project_id")
-        except Exception as e:
-            logger.warning(f"Could not resolve project_id via extractions: {e}")
+            rows = execute_read(
+                supabase.table("extracted_activities")
+                .select("extraction_id, extractions(project_id)")
+                .eq("id", str(ext_act_id)),
+                table="extracted_activities",
+                operation="review.resolve_project_via_extraction",
+            )
+            if rows:
+                embedded = rows[0].get("extractions")
+                if isinstance(embedded, list):
+                    embedded = embedded[0] if embedded else None
+                if isinstance(embedded, dict) and embedded.get("project_id"):
+                    return UUID(str(embedded["project_id"]))
+        except PersistenceError as exc:
+            logger.warning("Could not resolve project via extractions: %s", exc)
 
-    return None
+    raise HTTPException(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        detail=(
+            f"Cannot determine the project for match '{match_data.get('id')}'. "
+            "Authorization cannot be evaluated."
+        ),
+    )
 
 
 @router.post("/match/{match_id}/confirm", response_model=ConfirmResponse)
@@ -57,56 +118,46 @@ async def confirm_match(
     match_id: UUID,
     current_user: CurrentUser = Depends(require_planner_role),
 ):
-    """
-    Confirms a match (Planner role with project authorization only, SEC-03).
-    Updates SCHEDULE_MATCHES status to 'confirmed' and logs to AUDIT_TRAIL.
-    """
-    supabase = get_supabase_client()
+    """Confirm a match. Planner role on the owning project required (SEC-03)."""
+    supabase = _require_supabase()
     now_iso = datetime.now(timezone.utc).isoformat()
 
-    if supabase:
-        # 1. Verify match existence and project authorization (SEC-03)
-        match_data = None
-        try:
-            m_res = supabase.table("schedule_matches").select("*").eq("id", str(match_id)).execute()
-            if not m_res.data or len(m_res.data) == 0:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail=f"Schedule match '{match_id}' not found",
-                )
-            match_data = m_res.data[0]
-            project_id = _get_match_project_id(supabase, match_data)
-            if project_id and not verify_user_project_access(current_user.id, project_id):
-                logger.warning(f"Planner {current_user.id} denied confirm on match {match_id} for unauthorized project {project_id}")
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail=f"Forbidden: Planner is not authorized for project '{project_id}'",
-                )
-        except HTTPException:
-            raise
-        except Exception as e:
-            logger.error(f"Error checking schedule match authorization: {e}")
+    match_data = _load_match(supabase, match_id)
+    project_id = _resolve_match_project_id(supabase, match_data)
+    require_project_planner(current_user, project_id)
 
-        # 2. Perform status update
-        try:
-            update_data = {
-                "status": "confirmed",
-                "resolved_by": str(current_user.id),
-            }
-            supabase.table("schedule_matches").update(update_data).eq("id", str(match_id)).execute()
-        except Exception as e:
-            logger.error(f"Failed to update match status in database: {e}")
+    try:
+        execute_write(
+            supabase.table("schedule_matches")
+            .update({"status": "confirmed", "resolved_by": str(current_user.id)})
+            .eq("id", str(match_id)),
+            table="schedule_matches",
+            operation="review.confirm",
+        )
+    except PersistenceError as exc:
+        logger.error("Failed to confirm match %s: %s", match_id, exc)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=exc.public_detail,
+        ) from exc
 
-    log_action(
+    audit_row = log_action(
         entity_type="schedule_matches",
         entity_id=match_id,
         action="confirmed",
+        project_id=project_id,
         actor_id=current_user.id,
         actor_role=current_user.role,
+        previous_state={"status": match_data.get("status")},
         new_state={"status": "confirmed", "reviewed_at": now_iso},
+        confidence_score=match_data.get("confidence_score"),
     )
 
-    return ConfirmResponse(match_id=match_id, status="confirmed")
+    return ConfirmResponse(
+        match_id=match_id,
+        status="confirmed",
+        audit_warning=None if audit_row else "Audit trail entry could not be recorded.",
+    )
 
 
 @router.post("/match/{match_id}/reject", response_model=RejectResponse)
@@ -116,57 +167,82 @@ async def reject_match(
     current_user: CurrentUser = Depends(require_planner_role),
 ):
     """
-    Rejects a match (Planner role with project authorization only, SEC-03).
-    Updates SCHEDULE_MATCHES status to 'rejected' and logs to AUDIT_TRAIL.
+    Reject a match and move the reported activity into UNMATCHED_ACTIVITIES.
+
+    The activity itself is real evidence from the field — rejecting the *link*
+    must not discard it, otherwise the reported work silently disappears from
+    reconciliation.
     """
-    reason = payload.reason if payload else "Rejected by planner during reconciliation"
-    supabase = get_supabase_client()
+    reason = payload.reason if payload and payload.reason else "Rejected by planner during reconciliation"
+    supabase = _require_supabase()
     now_iso = datetime.now(timezone.utc).isoformat()
 
-    if supabase:
-        # 1. Verify match existence and project authorization (SEC-03)
-        match_data = None
-        try:
-            m_res = supabase.table("schedule_matches").select("*").eq("id", str(match_id)).execute()
-            if not m_res.data or len(m_res.data) == 0:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail=f"Schedule match '{match_id}' not found",
-                )
-            match_data = m_res.data[0]
-            project_id = _get_match_project_id(supabase, match_data)
-            if project_id and not verify_user_project_access(current_user.id, project_id):
-                logger.warning(f"Planner {current_user.id} denied reject on match {match_id} for unauthorized project {project_id}")
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail=f"Forbidden: Planner is not authorized for project '{project_id}'",
-                )
-        except HTTPException:
-            raise
-        except Exception as e:
-            logger.error(f"Error checking schedule match authorization: {e}")
+    match_data = _load_match(supabase, match_id)
+    project_id = _resolve_match_project_id(supabase, match_data)
+    require_project_planner(current_user, project_id)
 
-        # 2. Perform status update
-        try:
-            update_data = {
-                "status": "rejected",
-                "resolved_by": str(current_user.id),
-            }
-            supabase.table("schedule_matches").update(update_data).eq("id", str(match_id)).execute()
-        except Exception as e:
-            logger.error(f"Failed to update match status to rejected: {e}")
+    try:
+        execute_write(
+            supabase.table("schedule_matches")
+            .update({"status": "rejected", "resolved_by": str(current_user.id)})
+            .eq("id", str(match_id)),
+            table="schedule_matches",
+            operation="review.reject",
+        )
+    except PersistenceError as exc:
+        logger.error("Failed to reject match %s: %s", match_id, exc)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=exc.public_detail,
+        ) from exc
 
-    log_action(
+    # Return the extracted activity to the unmatched queue so it stays visible.
+    unmatched_id: Optional[UUID] = None
+    extracted_activity_id = match_data.get("extracted_activity_id")
+    if extracted_activity_id:
+        try:
+            rows = execute_write(
+                supabase.table("unmatched_activities").upsert(
+                    {
+                        "id": str(uuid4()),
+                        "extracted_activity_id": str(extracted_activity_id),
+                        "best_score": match_data.get("confidence_score"),
+                        "reason": f"Match rejected by planner: {reason}",
+                        "resolution": "unresolved",
+                    },
+                    on_conflict="extracted_activity_id",
+                ),
+                table="unmatched_activities",
+                operation="review.reject_to_unmatched",
+            )
+            if rows and rows[0].get("id"):
+                unmatched_id = UUID(str(rows[0]["id"]))
+        except PersistenceError as exc:
+            logger.error("Failed to move rejected match %s to unmatched: %s", match_id, exc)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=exc.public_detail,
+            ) from exc
+
+    audit_row = log_action(
         entity_type="schedule_matches",
         entity_id=match_id,
         action="rejected",
+        project_id=project_id,
         actor_id=current_user.id,
         actor_role=current_user.role,
-        new_state={"status": "rejected", "reviewed_at": now_iso},
+        previous_state={"status": match_data.get("status")},
+        new_state={"status": "rejected", "reviewed_at": now_iso, "unmatched_id": str(unmatched_id) if unmatched_id else None},
         reason=reason,
+        confidence_score=match_data.get("confidence_score"),
     )
 
-    return RejectResponse(match_id=match_id, status="rejected")
+    return RejectResponse(
+        match_id=match_id,
+        status="rejected",
+        unmatched_id=unmatched_id,
+        audit_warning=None if audit_row else "Audit trail entry could not be recorded.",
+    )
 
 
 @router.post("/match/{match_id}/reassign", response_model=ReassignResponse)
@@ -176,107 +252,90 @@ async def reassign_match(
     current_user: CurrentUser = Depends(require_planner_role),
 ):
     """
-    Reassigns a match to a different target schedule_plan activity (Planner role only).
-    Validates target plan activity existence, project authorization, updates SCHEDULE_MATCHES, and logs to AUDIT_TRAIL.
+    Reassign a match to a different planned activity within the same project.
+    Validates target existence, project consistency (F-04), and authorization.
     """
-    supabase = get_supabase_client()
+    supabase = _require_supabase()
     now_iso = datetime.now(timezone.utc).isoformat()
-    existing_match = None
 
-    if supabase:
-        # 1. Verify existing match exists
-        try:
-            match_res = supabase.table("schedule_matches").select("*").eq("id", str(match_id)).execute()
-            if not match_res.data or len(match_res.data) == 0:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail=f"Schedule match '{match_id}' not found",
-                )
-            existing_match = match_res.data[0]
-        except HTTPException:
-            raise
-        except Exception as e:
-            logger.error(f"Error checking schedule match existence: {e}")
+    existing_match = _load_match(supabase, match_id)
 
-        # 2. Verify target schedule_plan activity exists
-        target_plan = None
-        try:
-            plan_res = supabase.table("schedule_plan").select("*").eq("id", str(payload.target_plan_activity_id)).execute()
-            if not plan_res.data or len(plan_res.data) == 0:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail=f"Target schedule plan activity '{payload.target_plan_activity_id}' not found",
-                )
-            target_plan = plan_res.data[0]
-        except HTTPException:
-            raise
-        except Exception as e:
-            logger.error(f"Error checking target schedule plan activity existence: {e}")
+    # Target plan activity must exist.
+    try:
+        target_rows = execute_read(
+            supabase.table("schedule_plan").select("*").eq("id", str(payload.target_plan_activity_id)),
+            table="schedule_plan",
+            operation="review.load_target_plan",
+        )
+    except PersistenceError as exc:
+        logger.error("Error loading target plan activity: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=exc.public_detail,
+        ) from exc
 
-        # 3. Verify Project Consistency (F-04) & Project Authorization (SEC-03)
-        target_project_id = target_plan.get("project_id") if target_plan else None
-        
-        # Check source project_id from current schedule_plan activity
-        source_project_id = None
-        current_plan_id = existing_match.get("plan_activity_id")
-        if current_plan_id:
-            try:
-                curr_plan_res = supabase.table("schedule_plan").select("project_id").eq("id", str(current_plan_id)).execute()
-                if curr_plan_res.data and len(curr_plan_res.data) > 0:
-                    source_project_id = curr_plan_res.data[0].get("project_id")
-            except Exception as e:
-                logger.warning(f"Could not verify source plan activity project_id: {e}")
+    if not target_rows:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Target schedule plan activity '{payload.target_plan_activity_id}' not found",
+        )
 
-        # Check source project_id from extraction if available
-        if not source_project_id and existing_match.get("extracted_activity_id"):
-            try:
-                act_res = supabase.table("extracted_activities").select("extraction_id").eq("id", str(existing_match.get("extracted_activity_id"))).execute()
-                if act_res.data and len(act_res.data) > 0:
-                    ext_id = act_res.data[0].get("extraction_id")
-                    if ext_id:
-                        ext_res = supabase.table("extractions").select("project_id").eq("id", str(ext_id)).execute()
-                        if ext_res.data and len(ext_res.data) > 0:
-                            source_project_id = ext_res.data[0].get("project_id")
-            except Exception as e:
-                logger.warning(f"Could not verify extraction project_id: {e}")
+    target_plan = target_rows[0]
+    target_project_id_raw = target_plan.get("project_id")
+    if not target_project_id_raw:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Target schedule activity is not associated with a project.",
+        )
+    target_project_id = UUID(str(target_project_id_raw))
 
-        if source_project_id and target_project_id and str(source_project_id) != str(target_project_id):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Cross-project reassignment is not permitted. Match and target activity belong to different projects.",
+    source_project_id = _resolve_match_project_id(supabase, existing_match)
+
+    if str(source_project_id) != str(target_project_id):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cross-project reassignment is not permitted. Match and target activity belong to different projects.",
+        )
+
+    require_project_planner(current_user, target_project_id)
+
+    try:
+        execute_write(
+            supabase.table("schedule_matches")
+            .update(
+                {
+                    "plan_activity_id": str(payload.target_plan_activity_id),
+                    "status": "confirmed",
+                    "resolved_by": str(current_user.id),
+                }
             )
+            .eq("id", str(match_id)),
+            table="schedule_matches",
+            operation="review.reassign",
+        )
+    except PersistenceError as exc:
+        logger.error("Failed to reassign match %s: %s", match_id, exc)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=exc.public_detail,
+        ) from exc
 
-        if target_project_id and not verify_user_project_access(current_user.id, target_project_id):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Forbidden: Planner is not authorized for target project '{target_project_id}'",
-            )
-
-        # 4. Update existing match row
-        try:
-            update_data = {
-                "plan_activity_id": str(payload.target_plan_activity_id),
-                "status": "confirmed",
-                "resolved_by": str(current_user.id),
-            }
-            supabase.table("schedule_matches").update(update_data).eq("id", str(match_id)).execute()
-        except Exception as e:
-            logger.error(f"Failed to update schedule match on reassign: {e}")
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to reassign schedule match.",
-            )
-
-    # 5. Log to Audit Trail
-    confidence_score = existing_match.get("confidence_score") if existing_match else 1.0
+    confidence_score = existing_match.get("confidence_score")
+    if confidence_score is None:
+        confidence_score = 1.0
     reason = payload.reason or "Manually reassigned to target schedule activity"
 
-    log_action(
+    audit_row = log_action(
         entity_type="schedule_matches",
         entity_id=match_id,
         action="manually_linked",
+        project_id=target_project_id,
         actor_id=current_user.id,
         actor_role=current_user.role,
+        previous_state={
+            "plan_activity_id": existing_match.get("plan_activity_id"),
+            "status": existing_match.get("status"),
+        },
         new_state={
             "plan_activity_id": str(payload.target_plan_activity_id),
             "status": "confirmed",
@@ -292,5 +351,5 @@ async def reassign_match(
         plan_activity_id=payload.target_plan_activity_id,
         status="confirmed",
         resolved_by=current_user.id,
+        audit_warning=None if audit_row else "Audit trail entry could not be recorded.",
     )
-

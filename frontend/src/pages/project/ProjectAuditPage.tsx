@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
 import {
   Search,
   User,
@@ -12,6 +13,8 @@ import { ErrorState } from '../../components/common/ErrorState';
 import { TraceabilityModal } from '../../components/traceability/TraceabilityModal';
 
 export const ProjectAuditPage: React.FC = () => {
+  const { id } = useParams<{ id: string }>();
+  const projectId = id || '';
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [logs, setLogs] = useState<AuditTrailEntry[]>([]);
@@ -25,8 +28,8 @@ export const ProjectAuditPage: React.FC = () => {
     setError(null);
     try {
       const [auditData, matchData] = await Promise.all([
-        apiClient.getAudit(),
-        apiClient.getMatches(),
+        apiClient.getAudit({ project_id: projectId, action: actionFilter }),
+        apiClient.getMatches({ project_id: projectId }),
       ]);
       setLogs(auditData || []);
       setMatches(matchData || []);
@@ -40,7 +43,7 @@ export const ProjectAuditPage: React.FC = () => {
 
   useEffect(() => {
     loadLogs();
-  }, []);
+  }, [projectId, actionFilter]);
 
   const filtered = logs.filter((log) => {
     const term = search.toLowerCase();
